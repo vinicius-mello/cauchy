@@ -1,0 +1,9 @@
+build/emsdk/
+build/src/
+build/prefix/
+build/obj/
+dist/
+src/c/bindings.gen.c
+src/js/runtime/bindings.gen.js
+node_modules/
+build/*.log

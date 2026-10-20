@@ -1,0 +1,13 @@
+{
+  "name": "cauchy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deps": "build/deps.sh",
+    "wasm": "build/wasm.sh",
+    "bundle": "node tools/bundle.mjs",
+    "build": "build/wasm.sh && node tools/bundle.mjs",
+    "test": "node --test test/",
+    "serve": "python3 -m http.server -d dist 8080"
+  }
+}

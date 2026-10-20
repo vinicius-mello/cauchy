@@ -1,0 +1,490 @@
+# Operações expostas a JS. Ver tools/gen-bindings.mjs para o formato.
+# nome                     retorno        argumentos             = função C              ! erro
+
+# ---------------------------------------------------------------- inteiros (fmpz)
+fmpz_add                   fmpz           fmpz fmpz
+fmpz_sub                   fmpz           fmpz fmpz
+fmpz_mul                   fmpz           fmpz fmpz
+fmpz_neg                   fmpz           fmpz
+fmpz_abs                   fmpz           fmpz
+fmpz_fdiv_q                fmpz           fmpz fmpz
+fmpz_fdiv_r                fmpz           fmpz fmpz
+fmpz_tdiv_q                fmpz           fmpz fmpz
+fmpz_divexact              fmpz           fmpz fmpz
+fmpz_divisible             int            fmpz fmpz
+fmpz_pow_ui                fmpz           fmpz ui
+fmpz_powm                  fmpz           fmpz fmpz fmpz
+fmpz_invmod                fmpz           fmpz fmpz             ! elemento não inversível
+fmpz_gcd                   fmpz           fmpz fmpz
+fmpz_lcm                   fmpz           fmpz fmpz
+fmpz_cmp                   int            fmpz fmpz
+fmpz_equal                 int            fmpz fmpz
+fmpz_sgn                   int            fmpz
+fmpz_is_zero               int            fmpz
+fmpz_is_one                int            fmpz
+fmpz_is_even               int            fmpz
+fmpz_is_odd                int            fmpz
+fmpz_is_square             int            fmpz
+fmpz_is_probabprime        int            fmpz
+fmpz_is_prime              int            fmpz
+fmpz_nextprime             fmpz           fmpz si
+fmpz_sqrt                  fmpz           fmpz
+fmpz_root                  fmpz           fmpz si
+fmpz_fac_ui                fmpz           ui
+fmpz_bin_uiui              fmpz           ui ui
+fmpz_fib_ui                fmpz           ui
+fmpz_primorial             fmpz           ui
+fmpz_rfac_ui               fmpz           fmpz ui
+fmpz_jacobi                int            fmpz fmpz
+fmpz_euler_phi             fmpz           fmpz
+fmpz_moebius_mu            int            fmpz
+fmpz_divisor_sigma         fmpz           ui fmpz
+fmpz_bits                  ui             fmpz
+fmpz_sizeinbase            ui             fmpz si
+fmpz_clog                  si             fmpz fmpz
+fmpz_flog                  si             fmpz fmpz
+fmpz_numbpart              fmpz           fmpz                  = partitions_fmpz_fmpz_wrap
+fmpz_bell                  fmpz           ui                    = arith_bell_number
+fmpz_stirling1             fmpz           ui ui                 = arith_stirling_number_1
+fmpz_stirling2             fmpz           ui ui                 = arith_stirling_number_2
+fmpz_euler_number          fmpz           ui                    = arith_euler_number
+fmpz_randtest              fmpz           fmpz                  = h_fmpz_randm
+fmpz_set                   fmpz           fmpz
+n_prime_pi                 ui             ui
+n_nth_prime                ui             ui
+
+# ---------------------------------------------------------------- racionais (fmpq)
+fmpq_set_fmpz              fmpq           fmpz
+fmpq_add                   fmpq           fmpq fmpq
+fmpq_sub                   fmpq           fmpq fmpq
+fmpq_mul                   fmpq           fmpq fmpq
+fmpq_div                   fmpq           fmpq fmpq
+fmpq_neg                   fmpq           fmpq
+fmpq_abs                   fmpq           fmpq
+fmpq_inv                   fmpq           fmpq
+fmpq_pow_si                fmpq           fmpq si
+fmpq_cmp                   int            fmpq fmpq
+fmpq_equal                 int            fmpq fmpq
+fmpq_sgn                   int            fmpq
+fmpq_is_zero               int            fmpq
+fmpq_floor                 fmpz           fmpq                  = h_fmpq_floor
+fmpq_harmonic_ui           fmpq           ui
+fmpq_bernoulli             fmpq           ui                    = bernoulli_fmpq_ui
+fmpq_dedekind_sum          fmpq           fmpz fmpz             = fmpq_dedekind_sum
+fmpq_set                   fmpq           fmpq
+
+# ---------------------------------------------------------------- reais (arb)
+arb_set_fmpz               arb            fmpz
+arb_set_fmpq               arb            fmpq prec
+arb_set_round              arb            arb prec
+arb_add                    arb            arb arb prec
+arb_sub                    arb            arb arb prec
+arb_mul                    arb            arb arb prec
+arb_div                    arb            arb arb prec
+arb_neg                    arb            arb
+arb_abs                    arb            arb
+arb_pow                    arb            arb arb prec
+arb_pow_fmpz               arb            arb fmpz prec
+arb_pow_fmpq               arb            arb fmpq prec
+arb_sqrt                   arb            arb prec
+arb_rsqrt                  arb            arb prec
+arb_root_ui                arb            arb ui prec
+arb_exp                    arb            arb prec
+arb_expm1                  arb            arb prec
+arb_log                    arb            arb prec
+arb_log1p                  arb            arb prec
+arb_log_base_ui            arb            arb ui prec
+arb_sin                    arb            arb prec
+arb_cos                    arb            arb prec
+arb_tan                    arb            arb prec
+arb_cot                    arb            arb prec
+arb_sec                    arb            arb prec
+arb_csc                    arb            arb prec
+arb_sin_pi                 arb            arb prec
+arb_cos_pi                 arb            arb prec
+arb_sinc                   arb            arb prec
+arb_asin                   arb            arb prec
+arb_acos                   arb            arb prec
+arb_atan                   arb            arb prec
+arb_atan2                  arb            arb arb prec
+arb_sinh                   arb            arb prec
+arb_cosh                   arb            arb prec
+arb_tanh                   arb            arb prec
+arb_asinh                  arb            arb prec
+arb_acosh                  arb            arb prec
+arb_atanh                  arb            arb prec
+arb_gamma                  arb            arb prec
+arb_lgamma                 arb            arb prec
+arb_rgamma                 arb            arb prec
+arb_digamma                arb            arb prec
+arb_zeta                   arb            arb prec
+arb_hurwitz_zeta           arb            arb arb prec
+arb_agm                    arb            arb arb prec
+arb_erf                    arb            arb prec              = arb_hypgeom_erf
+arb_erfc                   arb            arb prec              = arb_hypgeom_erfc
+arb_erfi                   arb            arb prec              = arb_hypgeom_erfi
+arb_ei                     arb            arb prec              = arb_hypgeom_ei
+arb_si                     arb            arb prec              = arb_hypgeom_si
+arb_ci                     arb            arb prec              = arb_hypgeom_ci
+arb_li                     arb            arb prec              = h_arb_li
+arb_bessel_j               arb            arb arb prec          = arb_hypgeom_bessel_j
+arb_bessel_y               arb            arb arb prec          = arb_hypgeom_bessel_y
+arb_bessel_i               arb            arb arb prec          = arb_hypgeom_bessel_i
+arb_bessel_k               arb            arb arb prec          = arb_hypgeom_bessel_k
+arb_airy_ai                arb            arb prec              = h_arb_airy_ai
+arb_airy_bi                arb            arb prec              = h_arb_airy_bi
+arb_lambertw               arb            arb prec              = h_arb_lambertw
+arb_gamma_upper            arb            arb arb prec          = h_arb_gamma_upper
+arb_beta_lower             arb            arb arb arb prec      = h_arb_beta_lower
+arb_floor                  arb            arb prec
+arb_ceil                   arb            arb prec
+arb_min                    arb            arb arb prec
+arb_max                    arb            arb arb prec
+arb_const_pi               arb            prec
+arb_const_e                arb            prec
+arb_const_euler            arb            prec
+arb_const_catalan          arb            prec
+arb_const_khinchin         arb            prec
+arb_const_glaisher         arb            prec
+arb_const_log2             arb            prec
+arb_mid                    arb            arb                   = h_arb_get_mid
+arb_rad                    arb            arb                   = h_arb_get_rad
+arb_union                  arb            arb arb prec
+arb_contains               int            arb arb
+arb_contains_zero          int            arb
+arb_overlaps               int            arb arb
+arb_is_exact               int            arb
+arb_is_finite              int            arb
+arb_is_zero                int            arb
+arb_rel_accuracy_bits      si             arb
+arb_fib                    arb            fmpz prec             = arb_fib_fmpz
+arb_bernoulli              arb            ui prec               = arb_bernoulli_ui
+arb_chebyshev_t            arb            ui arb prec           = arb_chebyshev_t_ui
+arb_set_interval           arb            arb arb prec          = h_arb_interval
+arb_set                    arb            arb
+
+# ---------------------------------------------------------------- complexos (acb)
+acb_set_fmpz               acb            fmpz
+acb_set_fmpq               acb            fmpq prec
+acb_set_arb                acb            arb
+acb_set_round              acb            acb prec
+acb_add                    acb            acb acb prec
+acb_sub                    acb            acb acb prec
+acb_mul                    acb            acb acb prec
+acb_div                    acb            acb acb prec
+acb_neg                    acb            acb
+acb_conj                   acb            acb
+acb_pow                    acb            acb acb prec
+acb_pow_fmpz               acb            acb fmpz prec
+acb_sqrt                   acb            acb prec
+acb_rsqrt                  acb            acb prec
+acb_root_ui                acb            acb ui prec
+acb_exp                    acb            acb prec
+acb_log                    acb            acb prec
+acb_sin                    acb            acb prec
+acb_cos                    acb            acb prec
+acb_tan                    acb            acb prec
+acb_cot                    acb            acb prec
+acb_asin                   acb            acb prec
+acb_acos                   acb            acb prec
+acb_atan                   acb            acb prec
+acb_sinh                   acb            acb prec
+acb_cosh                   acb            acb prec
+acb_tanh                   acb            acb prec
+acb_asinh                  acb            acb prec
+acb_acosh                  acb            acb prec
+acb_atanh                  acb            acb prec
+acb_sinc                   acb            acb prec
+acb_gamma                  acb            acb prec
+acb_lgamma                 acb            acb prec
+acb_rgamma                 acb            acb prec
+acb_digamma                acb            acb prec
+acb_zeta                   acb            acb prec
+acb_hurwitz_zeta           acb            acb acb prec
+acb_polylog                acb            acb acb prec
+acb_agm                    acb            acb acb prec
+acb_erf                    acb            acb prec              = acb_hypgeom_erf
+acb_erfc                   acb            acb prec              = acb_hypgeom_erfc
+acb_ei                     acb            acb prec              = acb_hypgeom_ei
+acb_bessel_j               acb            acb acb prec          = acb_hypgeom_bessel_j
+acb_bessel_y               acb            acb acb prec          = acb_hypgeom_bessel_y
+acb_bessel_i               acb            acb acb prec          = acb_hypgeom_bessel_i
+acb_bessel_k               acb            acb acb prec          = acb_hypgeom_bessel_k
+acb_airy_ai                acb            acb prec              = h_acb_airy_ai
+acb_airy_bi                acb            acb prec              = h_acb_airy_bi
+acb_lambertw               acb            acb fmpz prec         = h_acb_lambertw
+acb_hyp2f1                 acb            acb acb acb acb prec  = h_acb_hyp2f1
+acb_gamma_upper            acb            acb acb prec          = h_acb_gamma_upper
+acb_modular_j              acb            acb prec
+acb_modular_eta            acb            acb prec
+acb_modular_lambda         acb            acb prec
+acb_modular_delta          acb            acb prec
+acb_elliptic_k             acb            acb prec
+acb_elliptic_e             acb            acb prec
+acb_elliptic_p             acb            acb acb prec
+acb_dirichlet_eta          acb            acb prec
+acb_zeta_zero              acb            fmpz prec             = h_acb_zeta_zero
+acb_barnes_g               acb            acb prec
+acb_abs                    arb            acb prec
+acb_arg                    arb            acb prec
+acb_real                   arb            acb                   = acb_get_real
+acb_imag                   arb            acb                   = acb_get_imag
+acb_const_i                acb                                  = acb_onei
+acb_is_real                int            acb
+acb_contains_zero          int            acb
+acb_is_exact               int            acb
+acb_is_zero                int            acb
+acb_contains               int            acb acb
+acb_overlaps               int            acb acb
+acb_is_finite              int            acb
+acb_rel_accuracy_bits      si             acb
+acb_set                    acb            acb
+
+# ---------------------------------------------------------------- Z/nZ (fmpz + fmpz_mod_ctx)
+zmod_set_fmpz              zmod           fmpz modctx           = fmpz_mod_set_fmpz
+zmod_add                   zmod           zmod zmod modctx      = fmpz_mod_add
+zmod_sub                   zmod           zmod zmod modctx      = fmpz_mod_sub
+zmod_mul                   zmod           zmod zmod modctx      = fmpz_mod_mul
+zmod_neg                   zmod           zmod modctx           = fmpz_mod_neg
+zmod_inv                   zmod           zmod modctx           = h_zmod_inv
+zmod_pow                   zmod           zmod fmpz modctx      = h_zmod_pow
+zmod_divides               zmod           zmod zmod modctx      = fmpz_mod_divides  ! divisão impossível em Z/nZ
+zmod_equal                 int            zmod zmod             = fmpz_equal
+zmod_sqrt                  zmod           zmod modctx           = h_zmod_sqrt
+
+# ---------------------------------------------------------------- GF(q) (fq_default)
+fq_set_fmpz                fq             fmpz fqctx            = fq_default_set_fmpz
+fq_gen                     fq             fqctx                 = fq_default_gen
+fq_add                     fq             fq fq fqctx           = fq_default_add
+fq_sub                     fq             fq fq fqctx           = fq_default_sub
+fq_mul                     fq             fq fq fqctx           = fq_default_mul
+fq_div                     fq             fq fq fqctx           = fq_default_div
+fq_neg                     fq             fq fqctx              = fq_default_neg
+fq_inv                     fq             fq fqctx              = fq_default_inv
+fq_pow                     fq             fq fmpz fqctx         = fq_default_pow
+fq_equal                   int            fq fq fqctx           = fq_default_equal
+fq_is_zero                 int            fq fqctx              = fq_default_is_zero
+fq_is_square               int            fq fqctx              = fq_default_is_square
+fq_sqrt                    fq             fq fqctx              = fq_default_sqrt  ! não é um quadrado
+fq_frobenius               fq             fq si fqctx           = fq_default_frobenius
+fq_trace                   fmpz           fq fqctx              = fq_default_trace
+fq_norm                    fmpz           fq fqctx              = fq_default_norm
+fq_order                   fmpz           fq fqctx              = h_fq_order
+fq_to_poly                 fmpz_poly      fq fqctx              = h_fq_to_poly
+fq_from_poly               fq             fmpz_poly fqctx       = h_fq_from_poly
+
+# ---------------------------------------------------------------- polinômios sobre ZZ
+fmpz_poly_add              fmpz_poly      fmpz_poly fmpz_poly
+fmpz_poly_sub              fmpz_poly      fmpz_poly fmpz_poly
+fmpz_poly_mul              fmpz_poly      fmpz_poly fmpz_poly
+fmpz_poly_neg              fmpz_poly      fmpz_poly
+fmpz_poly_pow              fmpz_poly      fmpz_poly ui
+fmpz_poly_scalar_mul       fmpz_poly      fmpz_poly fmpz        = fmpz_poly_scalar_mul_fmpz
+fmpz_poly_divides          fmpz_poly      fmpz_poly fmpz_poly   ! divisão não exata
+fmpz_poly_derivative       fmpz_poly      fmpz_poly
+fmpz_poly_compose          fmpz_poly      fmpz_poly fmpz_poly
+fmpz_poly_gcd              fmpz_poly      fmpz_poly fmpz_poly
+fmpz_poly_lcm              fmpz_poly      fmpz_poly fmpz_poly
+fmpz_poly_content          fmpz           fmpz_poly
+fmpz_poly_primitive_part   fmpz_poly      fmpz_poly
+fmpz_poly_discriminant     fmpz           fmpz_poly
+fmpz_poly_resultant        fmpz           fmpz_poly fmpz_poly
+fmpz_poly_evaluate_fmpz    fmpz           fmpz_poly fmpz
+fmpz_poly_equal            int            fmpz_poly fmpz_poly
+fmpz_poly_degree           si             fmpz_poly
+fmpz_poly_is_squarefree    int            fmpz_poly
+fmpz_poly_cyclotomic       fmpz_poly      ui
+fmpz_poly_chebyshev_t      fmpz_poly      ui
+fmpz_poly_chebyshev_u      fmpz_poly      ui
+fmpz_poly_swinnerton_dyer  fmpz_poly      ui
+fmpz_poly_cos_minpoly      fmpz_poly      ui
+fmpz_poly_hermite_h        fmpz_poly      ui
+fmpz_poly_set              fmpz_poly      fmpz_poly
+fmpz_poly_gen              fmpz_poly                            = h_fmpz_poly_gen
+fmpz_poly_evaluate_acb     acb            fmpz_poly acb prec    = h_fmpz_poly_evaluate_acb
+fmpz_poly_evaluate_arb     arb            fmpz_poly arb prec    = h_fmpz_poly_evaluate_arb
+
+# ---------------------------------------------------------------- polinômios sobre QQ
+fmpq_poly_set_fmpz_poly    fmpq_poly      fmpz_poly
+fmpq_poly_add              fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_sub              fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_mul              fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_neg              fmpq_poly      fmpq_poly
+fmpq_poly_pow              fmpq_poly      fmpq_poly ui
+fmpq_poly_scalar_mul       fmpq_poly      fmpq_poly fmpq        = fmpq_poly_scalar_mul_fmpq
+fmpq_poly_scalar_div       fmpq_poly      fmpq_poly fmpq        = fmpq_poly_scalar_div_fmpq
+fmpq_poly_div              fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_rem              fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_derivative       fmpq_poly      fmpq_poly
+fmpq_poly_integral         fmpq_poly      fmpq_poly
+fmpq_poly_compose          fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_gcd              fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_lcm              fmpq_poly      fmpq_poly fmpq_poly
+fmpq_poly_resultant        fmpq           fmpq_poly fmpq_poly
+fmpq_poly_evaluate_fmpq    fmpq           fmpq_poly fmpq
+fmpq_poly_equal            int            fmpq_poly fmpq_poly
+fmpq_poly_degree           si             fmpq_poly
+fmpq_poly_is_squarefree    int            fmpq_poly
+fmpq_poly_make_monic       fmpq_poly      fmpq_poly
+fmpq_poly_numerator        fmpz_poly      fmpq_poly             = fmpq_poly_get_numerator
+fmpq_poly_legendre_p       fmpq_poly      ui
+fmpq_poly_set              fmpq_poly      fmpq_poly
+fmpq_poly_evaluate_acb     acb            fmpq_poly acb prec    = h_fmpq_poly_evaluate_acb
+fmpq_poly_evaluate_arb     arb            fmpq_poly arb prec    = h_fmpq_poly_evaluate_arb
+
+# ---------------------------------------------------------------- polinômios sobre RR e CC
+arb_poly_set_fmpq_poly     arb_poly       fmpq_poly prec
+arb_poly_add               arb_poly       arb_poly arb_poly prec
+arb_poly_sub               arb_poly       arb_poly arb_poly prec
+arb_poly_mul               arb_poly       arb_poly arb_poly prec
+arb_poly_neg               arb_poly       arb_poly
+arb_poly_pow               arb_poly       arb_poly ui prec      = arb_poly_pow_ui
+arb_poly_scalar_mul        arb_poly       arb_poly arb prec
+arb_poly_scalar_div        arb_poly       arb_poly arb prec
+arb_poly_derivative        arb_poly       arb_poly prec
+arb_poly_integral          arb_poly       arb_poly prec
+arb_poly_compose           arb_poly       arb_poly arb_poly prec
+arb_poly_evaluate          arb            arb_poly arb prec
+arb_poly_evaluate_acb      acb            arb_poly acb prec
+arb_poly_degree            si             arb_poly
+arb_poly_equal             int            arb_poly arb_poly
+arb_poly_set               arb_poly       arb_poly
+acb_poly_set_arb_poly      acb_poly       arb_poly
+acb_poly_set_fmpq_poly     acb_poly       fmpq_poly prec
+acb_poly_add               acb_poly       acb_poly acb_poly prec
+acb_poly_sub               acb_poly       acb_poly acb_poly prec
+acb_poly_mul               acb_poly       acb_poly acb_poly prec
+acb_poly_neg               acb_poly       acb_poly
+acb_poly_pow               acb_poly       acb_poly ui prec      = acb_poly_pow_ui
+acb_poly_scalar_mul        acb_poly       acb_poly acb prec
+acb_poly_scalar_div        acb_poly       acb_poly acb prec
+acb_poly_derivative        acb_poly       acb_poly prec
+acb_poly_integral          acb_poly       acb_poly prec
+acb_poly_compose           acb_poly       acb_poly acb_poly prec
+acb_poly_evaluate          acb            acb_poly acb prec
+acb_poly_degree            si             acb_poly
+acb_poly_equal             int            acb_poly acb_poly
+acb_poly_set               acb_poly       acb_poly
+
+# ---------------------------------------------------------------- polinômios sobre Z/nZ e GF(q)
+zmod_poly_set_fmpz_poly    zmod_poly      fmpz_poly modctx      = fmpz_mod_poly_set_fmpz_poly
+zmod_poly_add              zmod_poly      zmod_poly zmod_poly modctx = fmpz_mod_poly_add
+zmod_poly_sub              zmod_poly      zmod_poly zmod_poly modctx = fmpz_mod_poly_sub
+zmod_poly_mul              zmod_poly      zmod_poly zmod_poly modctx = fmpz_mod_poly_mul
+zmod_poly_neg              zmod_poly      zmod_poly modctx      = fmpz_mod_poly_neg
+zmod_poly_pow              zmod_poly      zmod_poly ui modctx   = fmpz_mod_poly_pow
+zmod_poly_scalar_mul       zmod_poly      zmod_poly zmod modctx = fmpz_mod_poly_scalar_mul_fmpz
+zmod_poly_powmod           zmod_poly      zmod_poly fmpz zmod_poly modctx = fmpz_mod_poly_powmod_fmpz_binexp
+zmod_poly_derivative       zmod_poly      zmod_poly modctx      = fmpz_mod_poly_derivative
+zmod_poly_compose          zmod_poly      zmod_poly zmod_poly modctx = fmpz_mod_poly_compose
+zmod_poly_gcd              zmod_poly      zmod_poly zmod_poly modctx = fmpz_mod_poly_gcd
+zmod_poly_evaluate         zmod           zmod_poly zmod modctx = fmpz_mod_poly_evaluate_fmpz
+zmod_poly_equal            int            zmod_poly zmod_poly modctx = fmpz_mod_poly_equal
+zmod_poly_degree           si             zmod_poly modctx      = fmpz_mod_poly_degree
+zmod_poly_is_irreducible   int            zmod_poly modctx      = fmpz_mod_poly_is_irreducible
+zmod_poly_make_monic       zmod_poly      zmod_poly modctx      = fmpz_mod_poly_make_monic
+zmod_poly_set              zmod_poly      zmod_poly modctx      = fmpz_mod_poly_set
+zmod_poly_lift             fmpz_poly      zmod_poly modctx      = fmpz_mod_poly_get_fmpz_poly
+fq_poly_add                fq_poly        fq_poly fq_poly fqctx = fq_default_poly_add
+fq_poly_sub                fq_poly        fq_poly fq_poly fqctx = fq_default_poly_sub
+fq_poly_mul                fq_poly        fq_poly fq_poly fqctx = fq_default_poly_mul
+fq_poly_neg                fq_poly        fq_poly fqctx         = fq_default_poly_neg
+fq_poly_pow                fq_poly        fq_poly ui fqctx      = fq_default_poly_pow
+fq_poly_scalar_mul         fq_poly        fq_poly fq fqctx      = fq_default_poly_scalar_mul_fq_default
+fq_poly_derivative         fq_poly        fq_poly fqctx         = fq_default_poly_derivative
+fq_poly_compose            fq_poly        fq_poly fq_poly fqctx = fq_default_poly_compose
+fq_poly_gcd                fq_poly        fq_poly fq_poly fqctx = fq_default_poly_gcd
+fq_poly_evaluate           fq             fq_poly fq fqctx      = fq_default_poly_evaluate_fq_default
+fq_poly_equal              int            fq_poly fq_poly fqctx = fq_default_poly_equal
+fq_poly_degree             si             fq_poly fqctx         = fq_default_poly_degree
+fq_poly_is_irreducible     int            fq_poly fqctx         = fq_default_poly_is_irreducible
+fq_poly_make_monic         fq_poly        fq_poly fqctx         = fq_default_poly_make_monic
+fq_poly_set                fq_poly        fq_poly fqctx         = fq_default_poly_set
+
+# ---------------------------------------------------------------- matrizes
+fmpz_mat_add               fmpz_mat@0     fmpz_mat fmpz_mat
+fmpz_mat_sub               fmpz_mat@0     fmpz_mat fmpz_mat
+fmpz_mat_mul               fmpz_mat@0x1   fmpz_mat fmpz_mat
+fmpz_mat_neg               fmpz_mat@0     fmpz_mat
+fmpz_mat_scalar_mul        fmpz_mat@0     fmpz_mat fmpz         = fmpz_mat_scalar_mul_fmpz
+fmpz_mat_pow               fmpz_mat@0     fmpz_mat ui
+fmpz_mat_transpose         fmpz_mat@0T    fmpz_mat
+fmpz_mat_det               fmpz           fmpz_mat
+fmpz_mat_trace             fmpz           fmpz_mat
+fmpz_mat_rank              si             fmpz_mat
+fmpz_mat_equal             int            fmpz_mat fmpz_mat
+fmpz_mat_charpoly          fmpz_poly      fmpz_mat
+fmpz_mat_minpoly           fmpz_poly      fmpz_mat
+fmpz_mat_hnf               fmpz_mat@0     fmpz_mat
+fmpz_mat_snf               fmpz_mat@0     fmpz_mat
+fmpz_mat_lll               fmpz_mat@0     fmpz_mat              = h_fmpz_mat_lll
+fmpz_mat_set               fmpz_mat@0     fmpz_mat
+fmpq_mat_set_fmpz_mat      fmpq_mat@0     fmpz_mat
+fmpq_mat_add               fmpq_mat@0     fmpq_mat fmpq_mat
+fmpq_mat_sub               fmpq_mat@0     fmpq_mat fmpq_mat
+fmpq_mat_mul               fmpq_mat@0x1   fmpq_mat fmpq_mat
+fmpq_mat_neg               fmpq_mat@0     fmpq_mat
+fmpq_mat_scalar_mul        fmpq_mat@0     fmpq_mat fmpq         = h_fmpq_mat_scalar_mul
+fmpq_mat_pow               fmpq_mat@0     fmpq_mat ui           = h_fmpq_mat_pow
+fmpq_mat_transpose         fmpq_mat@0T    fmpq_mat
+fmpq_mat_det               fmpq           fmpq_mat
+fmpq_mat_trace             fmpq           fmpq_mat
+fmpq_mat_rank              si             fmpq_mat              = h_fmpq_mat_rank
+fmpq_mat_equal             int            fmpq_mat fmpq_mat
+fmpq_mat_charpoly          fmpq_poly      fmpq_mat
+fmpq_mat_minpoly           fmpq_poly      fmpq_mat
+fmpq_mat_set               fmpq_mat@0     fmpq_mat
+arb_mat_set_fmpq_mat       arb_mat@0      fmpq_mat prec
+arb_mat_add                arb_mat@0      arb_mat arb_mat prec
+arb_mat_sub                arb_mat@0      arb_mat arb_mat prec
+arb_mat_mul                arb_mat@0x1    arb_mat arb_mat prec
+arb_mat_neg                arb_mat@0      arb_mat
+arb_mat_scalar_mul         arb_mat@0      arb_mat arb prec      = arb_mat_scalar_mul_arb
+arb_mat_pow                arb_mat@0      arb_mat ui prec       = arb_mat_pow_ui
+arb_mat_transpose          arb_mat@0T     arb_mat
+arb_mat_det                arb            arb_mat prec
+arb_mat_trace              arb            arb_mat prec
+arb_mat_exp                arb_mat@0      arb_mat prec
+arb_mat_charpoly           arb_poly       arb_mat prec
+arb_mat_solve              arb_mat@0x1    arb_mat arb_mat prec  ! sistema singular ou precisão insuficiente
+arb_mat_equal              int            arb_mat arb_mat
+arb_mat_set                arb_mat@0      arb_mat
+acb_mat_set_arb_mat        acb_mat@0      arb_mat
+acb_mat_add                acb_mat@0      acb_mat acb_mat prec
+acb_mat_sub                acb_mat@0      acb_mat acb_mat prec
+acb_mat_mul                acb_mat@0x1    acb_mat acb_mat prec
+acb_mat_neg                acb_mat@0      acb_mat
+acb_mat_scalar_mul         acb_mat@0      acb_mat acb prec      = acb_mat_scalar_mul_acb
+acb_mat_pow                acb_mat@0      acb_mat ui prec       = acb_mat_pow_ui
+acb_mat_transpose          acb_mat@0T     acb_mat
+acb_mat_conjugate_transpose acb_mat@0T    acb_mat
+acb_mat_det                acb            acb_mat prec
+acb_mat_trace              acb            acb_mat prec
+acb_mat_exp                acb_mat@0      acb_mat prec
+acb_mat_charpoly           acb_poly       acb_mat prec
+acb_mat_solve              acb_mat@0x1    acb_mat acb_mat prec  ! sistema singular ou precisão insuficiente
+acb_mat_equal              int            acb_mat acb_mat
+acb_mat_set                acb_mat@0      acb_mat
+zmod_mat_set_fmpz_mat      zmod_mat@0     fmpz_mat modctx       = fmpz_mod_mat_set_fmpz_mat
+zmod_mat_add               zmod_mat@0     zmod_mat zmod_mat modctx = fmpz_mod_mat_add
+zmod_mat_sub               zmod_mat@0     zmod_mat zmod_mat modctx = fmpz_mod_mat_sub
+zmod_mat_mul               zmod_mat@0x1   zmod_mat zmod_mat modctx = fmpz_mod_mat_mul
+zmod_mat_neg               zmod_mat@0     zmod_mat modctx       = fmpz_mod_mat_neg
+zmod_mat_scalar_mul        zmod_mat@0     zmod_mat zmod modctx  = fmpz_mod_mat_scalar_mul_fmpz
+zmod_mat_transpose         zmod_mat@0T    zmod_mat modctx       = fmpz_mod_mat_transpose
+zmod_mat_det               zmod           zmod_mat modctx       = fmpz_mod_mat_det
+zmod_mat_rank              si             zmod_mat modctx       = fmpz_mod_mat_rank
+zmod_mat_rref              zmod_mat@0     zmod_mat modctx       = fmpz_mod_mat_rref
+zmod_mat_charpoly          zmod_poly      zmod_mat modctx       = fmpz_mod_mat_charpoly
+zmod_mat_equal             int            zmod_mat zmod_mat modctx = fmpz_mod_mat_equal
+zmod_mat_set               zmod_mat@0     zmod_mat modctx       = fmpz_mod_mat_set
+fq_mat_add                 fq_mat@0       fq_mat fq_mat fqctx   = fq_default_mat_add
+fq_mat_sub                 fq_mat@0       fq_mat fq_mat fqctx   = fq_default_mat_sub
+fq_mat_mul                 fq_mat@0x1     fq_mat fq_mat fqctx   = fq_default_mat_mul
+fq_mat_neg                 fq_mat@0       fq_mat fqctx          = fq_default_mat_neg
+fq_mat_rank                si             fq_mat fqctx          = fq_default_mat_rank
+fq_mat_rref                fq_mat@0       fq_mat fqctx          = fq_default_mat_rref
+fq_mat_charpoly            fq_poly        fq_mat fqctx          = fq_default_mat_charpoly
+fq_mat_minpoly             fq_poly        fq_mat fqctx          = fq_default_mat_minpoly
+fq_mat_equal               int            fq_mat fq_mat fqctx   = fq_default_mat_equal
+fq_mat_set                 fq_mat@0       fq_mat fqctx          = fq_default_mat_set
