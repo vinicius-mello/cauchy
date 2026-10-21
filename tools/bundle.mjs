@@ -69,5 +69,7 @@ const html = readFileSync(join(root, 'src/ui/index.html'), 'utf8')
 mkdirSync(join(root, 'dist'), { recursive: true });
 writeFileSync(join(root, 'dist/index.html'), html);
 copyFileSync(join(root, 'build/obj/cauchy.wasm'), join(root, 'dist/cauchy.wasm'));
+// Fonte monoespaçada (JetBrains Mono recortado, licença OFL) servida ao lado da página.
+copyFileSync(join(root, 'src/ui/fonts/cauchy-mono.woff2'), join(root, 'dist/cauchy-mono.woff2'));
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 console.log(`dist/index.html ${kb(html.length)} (worker ${kb(worker.length)}, app ${kb(app.length)})`);

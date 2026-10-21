@@ -1,8 +1,9 @@
 # Cauchy
 
 Ambiente reativo de exploração numérica no navegador sobre **FLINT 3.6** (com GMP e MPFR),
-compilado para WebAssembly. Uma página (`dist/index.html`) + `dist/cauchy.wasm`, sem
-dependências em tempo de execução.
+compilado para WebAssembly. Uma página (`dist/index.html`) + `dist/cauchy.wasm` +
+`dist/cauchy-mono.woff2` (fonte do editor: JetBrains Mono recortado, licença SIL OFL 1.1,
+ver `src/ui/fonts/OFL-JetBrainsMono.txt`), sem dependências em tempo de execução.
 
 ## Build
 
