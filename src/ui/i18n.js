@@ -20,6 +20,7 @@ const STRINGS = {
     'theme.t': 'Alternar tema claro/escuro',
     loading: 'carregando FLINT…', ready: 'pronto', computing: 'calculando…',
     stop: 'Interromper', autorun: 'avaliar ao digitar',
+    unicode: 'símbolos → ← ⇒ ▷', 'unicode.t': 'Trocar ->, <-, => e |> pelos símbolos ao digitar (Ctrl+Z desfaz)',
     objects: (n) => `${n} objetos FLINT`,
     'worker-error': (m) => `erro no worker: ${m}`,
     'fatal-restart': 'erro interno — reiniciando',
@@ -51,6 +52,7 @@ const STRINGS = {
     'theme.t': 'Toggle light/dark theme',
     loading: 'loading FLINT…', ready: 'ready', computing: 'computing…',
     stop: 'Interrupt', autorun: 'evaluate while typing',
+    unicode: 'symbols → ← ⇒ ▷', 'unicode.t': 'Replace ->, <-, => and |> with symbols while typing (Ctrl+Z undoes)',
     objects: (n) => `${n} FLINT objects`,
     'worker-error': (m) => `worker error: ${m}`,
     'fatal-restart': 'internal error — restarting',
@@ -75,6 +77,9 @@ export const SYNTAX_NOTES = {
 precisão não decide geram erro — aumente <code>prec</code>.</p>
 <p>Listas e matrizes são indexadas a partir de 1; <code>xs[-1]</code> é o último elemento.
 Um polinômio é também uma função: <code>p(3)</code>, <code>p(x + 1)</code>.</p>
+<p>Ao digitar, <code>-&gt;</code>, <code>&lt;-</code>, <code>=&gt;</code> e <code>|&gt;</code> viram
+<code>→ ← ⇒ ▷</code> (desative no rodapé; Ctrl+Z desfaz). Os dois estilos são equivalentes,
+assim como <code>≤ ≥ ≠ · ×</code>.</p>
 <p>Gráficos são valores: primitivas como <code>circle(c, r)</code> recebem pontos como
 complexos (<code>1 + 2i</code>) ou tuplas <code>(x, y)</code> e atributos nomeados
 (<code>color</code>, <code>fill</code>, <code>width</code>, <code>dash</code>, <code>opacity</code>,
@@ -87,6 +92,9 @@ complexos (<code>1 + 2i</code>) ou tuplas <code>(x, y)</code> e atributos nomead
 current precision cannot decide raise an error — increase <code>prec</code>.</p>
 <p>Lists and matrices are 1-indexed; <code>xs[-1]</code> is the last element.
 A polynomial is also a function: <code>p(3)</code>, <code>p(x + 1)</code>.</p>
+<p>While typing, <code>-&gt;</code>, <code>&lt;-</code>, <code>=&gt;</code> and <code>|&gt;</code> become
+<code>→ ← ⇒ ▷</code> (turn off in the footer; Ctrl+Z undoes). Both styles are equivalent,
+as are <code>≤ ≥ ≠ · ×</code>.</p>
 <p>Graphics are values: primitives such as <code>circle(c, r)</code> take points as
 complex numbers (<code>1 + 2i</code>) or tuples <code>(x, y)</code> and keyword attributes
 (<code>color</code>, <code>fill</code>, <code>width</code>, <code>dash</code>, <code>opacity</code>,

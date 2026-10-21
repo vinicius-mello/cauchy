@@ -5,7 +5,7 @@ import { esc } from './render.js';
 const KEYWORDS = new Set(['let', 'in', 'if', 'then', 'else', 'match', 'with', 'and', 'or', 'not', 'true', 'false', 'by']);
 const RINGS = new Set(['ZZ', 'QQ', 'RR', 'CC', 'ℤ', 'ℚ', 'ℝ', 'ℂ']);
 
-const TOKEN = /(#[^\n]*)|("(?:\\.|[^"\\])*"?)|(\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?)|([\p{L}_][\p{L}\p{N}_']*)|(\|>|->|=>|<-|==|!=|<=|>=|\.\.\.|\.\.|\/\/|[-+*/^%!=<>|∘√·×≤≥≠→←])|(\s+)|(.)/gsu;
+const TOKEN = /(#[^\n]*)|("(?:\\.|[^"\\])*"?)|(\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?)|([\p{L}_][\p{L}\p{N}_']*)|(\|>|->|=>|<-|==|!=|<=|>=|\.\.\.|\.\.|\/\/|[-+*/^%!=<>|∘√·×≤≥≠→←⇒▷])|(\s+)|(.)/gsu;
 
 export function highlight(src, builtins = new Set(), err = null) {
   const segs = [];
@@ -48,4 +48,21 @@ export function highlight(src, builtins = new Set(), err = null) {
   // Erro no fim da entrada: marca um espaço.
   if (err && e0 >= src.length) out += '<span class="t-err"> </span>';
   return out + '\n';
+}
+
+// Digitação de símbolos: o par ASCII que termina em `end` vira o caractere
+// Unicode correspondente, se for de fato esse operador (não está em string
+// ou comentário, nem faz parte de outro token).
+const SYMBOLS = { '->': '→', '<-': '←', '=>': '⇒', '|>': '▷' };
+
+export function symbolAt(src, end) {
+  const pair = src.slice(end - 2, end);
+  if (!SYMBOLS[pair]) return null;
+  TOKEN.lastIndex = 0;
+  let m;
+  while ((m = TOKEN.exec(src))) {
+    if (m.index >= end) break;
+    if (m.index === end - 2 && m[0] === pair && m[5]) return SYMBOLS[pair];
+  }
+  return null;
 }

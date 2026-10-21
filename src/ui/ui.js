@@ -3,7 +3,7 @@
 
 import { render, ringName, esc } from './render.js';
 import { renderGraphics } from './plot.js';
-import { highlight } from './highlight.js';
+import { highlight, symbolAt } from './highlight.js';
 import { EXAMPLES, pick } from './examples.js';
 import { t, setLang, getLang, detectLang, applyStatic, translateError, SYNTAX_CODE, SYNTAX_NOTES } from './i18n.js';
 import { REF, CATEGORIES, ALIASES, flintDocUrl } from './reference.js';
@@ -191,7 +191,8 @@ function buildCellEl(c) {
   applyStatic(el);
   const ta = $('textarea', el);
   ta.value = c.src;
-  ta.addEventListener('input', () => {
+  ta.addEventListener('input', (ev) => {
+    if (symbolize(ta, ev)) return;
     c.src = ta.value;
     refreshHighlight(c);
     autosize(c);
@@ -636,6 +637,21 @@ function applyLang(lang) {
   for (const c of state.cells) if (c.result) { c.relang = true; showResult(c, c.result); c.relang = false; }
 }
 
+// Troca ->, <-, => e |> pelos símbolos →, ←, ⇒ e ▷ quando o segundo
+// caractere é digitado. Usa execCommand para que Ctrl+Z desfaça a troca; o
+// evento de entrada aninhado cuida do resto (devolve true nesse caso).
+function symbolize(ta, ev) {
+  if (!$('#unicode').checked || ev.inputType !== 'insertText' || (ev.data !== '>' && ev.data !== '-')) return false;
+  const end = ta.selectionStart;
+  if (end !== ta.selectionEnd) return false;
+  const sym = symbolAt(ta.value, end);
+  if (!sym) return false;
+  ta.setSelectionRange(end - 2, end);
+  if (document.execCommand && document.execCommand('insertText', false, sym)) return true;
+  ta.setRangeText(sym, end - 2, end, 'end');
+  return false;
+}
+
 // --------------------------------------------------------------- tema
 
 // Tema efetivo: escolha salva (data-theme) ou, sem ela, o do sistema.
@@ -701,6 +717,8 @@ async function main() {
   $('#help').onclick = () => document.body.classList.toggle('show-ref');
   $('#autorun').checked = localStorage.getItem('cauchy.autorun') !== '0';
   $('#autorun').onchange = (ev) => localStorage.setItem('cauchy.autorun', ev.target.checked ? '1' : '0');
+  $('#unicode').checked = localStorage.getItem('cauchy.unicode') !== '0';
+  $('#unicode').onchange = (ev) => localStorage.setItem('cauchy.unicode', ev.target.checked ? '1' : '0');
   document.addEventListener('focusin', (ev) => { if (ev.target.tagName === 'TEXTAREA') state.lastTa = ev.target; });
   document.addEventListener('keydown', (ev) => {
     if (ev.key === '.' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); interrupt(); }
