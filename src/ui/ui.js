@@ -636,6 +636,28 @@ function applyLang(lang) {
   for (const c of state.cells) if (c.result) { c.relang = true; showResult(c, c.result); c.relang = false; }
 }
 
+// --------------------------------------------------------------- tema
+
+// Tema efetivo: escolha salva (data-theme) ou, sem ela, o do sistema.
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+const currentTheme = () => document.documentElement.dataset.theme ?? (darkQuery.matches ? 'dark' : 'light');
+
+function showThemeIcon() {
+  // O ícone indica o tema para o qual o botão leva.
+  $('#theme').textContent = currentTheme() === 'dark' ? '☀' : '☾';
+}
+
+function toggleTheme() {
+  const next = currentTheme() === 'dark' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = next;
+  try {
+    localStorage.setItem('cauchy.theme', next);
+  } catch {
+    // sem armazenamento: vale só nesta sessão
+  }
+  showThemeIcon();
+}
+
 // --------------------------------------------------------------- inicialização
 
 async function initialNotebook() {
@@ -659,6 +681,9 @@ async function initialNotebook() {
 async function main() {
   applyLang(detectLang());
   $('#lang').onchange = (ev) => applyLang(ev.target.value);
+  $('#theme').onclick = toggleTheme;
+  darkQuery.addEventListener('change', showThemeIcon);
+  showThemeIcon();
   const examples = $('#examples');
   examples.onchange = () => {
     const e = EXAMPLES[+examples.value];
