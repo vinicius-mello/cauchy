@@ -182,6 +182,7 @@ const WORDS = {
   'quebra de linha': 'line break', fim: 'end',
   'gráfico': 'graphic', ponto: 'point', centro: 'center', raio: 'radius', 'ângulo': 'angle', 'início': 'start',
   matiz: 'hue', 'saturação': 'saturation', luminosidade: 'lightness', 'componente de cor': 'color component',
+  deslocamento: 'displacement', fator: 'factor', 'entrada da matriz': 'matrix entry',
 };
 const w = (s) => WORDS[s] ?? s;
 
@@ -324,6 +325,11 @@ const RULES = [
   [/^intervalo da curva inválido$/, 'invalid curve interval'],
   [/^aspect deve ser "equal" ou "auto"$/, 'aspect must be "equal" or "auto"'],
   [/^opção desconhecida de draw: (.+)$/, 'unknown draw option: $1'],
+  [/^fator de escala não pode ser zero$/, 'scale factor cannot be zero'],
+  [/^transform espera uma matriz 2×2$/, 'transform expects a 2×2 matrix'],
+  [/^a matriz de transform deve ser invertível$/, 'the transform matrix must be invertible'],
+  [/^transform: pontos demais$/, 'transform: too many points'],
+  [/^transform não se aplica a retas infinitas \(use segment\)$/, 'transform does not apply to infinite lines (use segment)'],
   [/^função FLINT desconhecida: (.+)$/, 'unknown FLINT function: $1'],
   [/^tipo FLINT desconhecido: (.+)$/, 'unknown FLINT type: $1'],
   [/^(.+) requer um anel Zmod\(n\)\/GF\(q\) como argumento$/, '$1 requires a Zmod(n)/GF(q) ring as an argument'],

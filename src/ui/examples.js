@@ -61,6 +61,9 @@ export const EXAMPLES = [
       { pt: '# Gráficos de funções se combinam com primitivas usando +\na = slider(-3, 3, 0.1, value = 1)', en: '# Function plots combine with primitives using +\na = slider(-3, 3, 0.1, value = 1)' },
       'plot(sin, -4, 4) + infline((a, sin(a)), (a + 1, sin(a) + cos(a)), color = 2, dash = "dash") + point((a, sin(a)), size = 4, color = 2)',
       '[disk(exp(2pi*i*k/12), 0.2, color = hsl(k/12, 0.8, 0.5)) | k <- 1..12] + [arrow(0, 0.75*exp(2pi*i*k/12)) | k <- 1..12]',
+      { pt: '# Transformações afins: rotate, scale, translate, reflect\nq = rect(-1 - i, 1 + i)\n[style(rotate(scale(q, 0.9^k), k*pi/24), color = hsl(k/24, 0.7, 0.5)) | k <- 0..23]', en: '# Affine transformations: rotate, scale, translate, reflect\nq = rect(-1 - i, 1 + i)\n[style(rotate(scale(q, 0.9^k), k*pi/24), color = hsl(k/24, 0.7, 0.5)) | k <- 0..23]' },
+      { pt: '# Imagem de uma grade polar pela Möbius z -> (z - 1)/(z + 1)\npolar = [circle(0, r/2) | r <- 1..6] + [segment(0, 3*exp(i*k*pi/8), color = 2) | k <- 1..16]', en: '# Image of a polar grid under the Möbius map z -> (z - 1)/(z + 1)\npolar = [circle(0, r/2) | r <- 1..6] + [segment(0, 3*exp(i*k*pi/8), color = 2) | k <- 1..16]' },
+      'transform(polar, z -> (z - 1)/(z + 1)) |> draw(xlim = [-3, 3], ylim = [-2, 2])',
     ],
   },
   {

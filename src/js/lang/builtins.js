@@ -8,6 +8,7 @@ import {
 } from '../runtime/rings.js';
 import { Tuple, Func, Factored, Graphic, Widget, UNIT, asGraphic } from '../runtime/values.js';
 import { fail } from '../runtime/errors.js';
+import { affine, affineItems, mapItems } from '../runtime/geom.js';
 import { showText } from '../runtime/show.js';
 import {
   Env, callValue, toInt, toBool, int, iterable, range, index, valuesEqual, typeName,
@@ -1117,6 +1118,15 @@ export function makeGlobals() {
     }
     fail(`${what} deve ser um número complexo ou uma tupla (x, y)`);
   };
+  // Ponto calculado (curve/transform): bolas largas demais (perto de polos)
+  // não têm ponto médio confiável e viram lacunas.
+  const sharp = (v) => {
+    if (v instanceof Elem && (v.ring === RR || v.ring === CC)) {
+      const parts = v.ring === RR ? [v] : [CC.re(v), CC.im(v)];
+      if (parts.some((x) => !(RR.rad(x) <= 1e-9 * (1 + Math.abs(RR.mid(x)))))) return null;
+    }
+    return pt(v);
+  };
   const pts = (ps, min, what = 'pontos') => {
     const out = list(ps).map((p) => pt(p));
     if (out.length < min) fail(`${what}: esperava pelo menos ${min} pontos`);
@@ -1224,7 +1234,7 @@ export function makeGlobals() {
       for (let k = 0; k <= n; k++) {
         let p = null;
         try {
-          p = pt(callValue(fn(f), [RR.fromNumber(lo + ((hi - lo) * k) / n)]));
+          p = sharp(callValue(fn(f), [RR.fromNumber(lo + ((hi - lo) * k) / n)]));
         } catch (e) {
           if (e.name === 'CauchyError' && /recursão/.test(e.message)) throw e;
         }
@@ -1278,6 +1288,49 @@ export function makeGlobals() {
     const hh = ((real(h, 'matiz') % 1) + 1) % 1;
     return `hsl(${+(hh * 360).toFixed(2)}, ${+(unit(s, 'saturação') * 100).toFixed(2)}%, ${+(unit(l, 'luminosidade') * 100).toFixed(2)}%)`;
   }, 'hsl(h, s, l): cor por matiz (h em voltas, 0 a 1), saturação e luminosidade');
+
+  // Transformações: afins são exatas (círculos continuam círculos sob
+  // semelhanças); funções arbitrárias amostram e mapeiam cada ponto.
+  const withItems = (g, what, f) => {
+    const G = graphic(g, what);
+    return new Graphic(f(G.items), G.opts);
+  };
+  const center = (c) => (c === undefined ? [0, 0] : pt(c, 'centro'));
+  def('translate', 2, ([g, v]) => withItems(g, 'translate', (items) => affineItems(items, affine.translate(...pt(v, 'deslocamento')))),
+    'translate(g, v): desloca g pelo vetor v');
+  def('rotate', null, ([g, t, c]) => {
+    const th = real(t, 'ângulo');
+    return withItems(g, 'rotate', (items) => affineItems(items, affine.rotate(th, ...center(c))));
+  }, 'rotate(g, θ, c=0): gira g de θ radianos em torno de c');
+  def('scale', null, ([g, k, c]) => {
+    const [kx, ky] = k instanceof Tuple ? pt(k, 'fator') : [real(k, 'fator'), real(k, 'fator')];
+    if (kx === 0 || ky === 0) fail('fator de escala não pode ser zero');
+    return withItems(g, 'scale', (items) => affineItems(items, affine.scale(kx, ky, ...center(c))));
+  }, 'scale(g, k, c=0): homotetia de razão k (ou (kx, ky)) com centro c');
+  def('reflect', 3, ([g, a, b]) => {
+    const [p, q] = distinct(pt(a), pt(b));
+    return withItems(g, 'reflect', (items) => affineItems(items, affine.reflect(...p, ...q)));
+  }, 'reflect(g, a, b): reflexão na reta por a e b');
+  def('transform', null, ([g, f], kw) => {
+    if (f instanceof Elem && f.ring instanceof MatSpace) {
+      const rows = f.ring.rows(f);
+      if (rows.length !== 2 || rows[0].length !== 2) fail('transform espera uma matriz 2×2');
+      const [[a, b], [c, d]] = rows.map((r) => r.map((x) => real(x, 'entrada da matriz')));
+      if (a * d - b * c === 0) fail('a matriz de transform deve ser invertível');
+      return withItems(g, 'transform', (items) => affineItems(items, affine.linear(a, b, c, d)));
+    }
+    fn(f);
+    const steps = kw.steps !== undefined ? Math.max(1, Math.min(256, toInt(kw.steps, 'steps'))) : null;
+    const map = ([x, y]) => {
+      try {
+        return sharp(callValue(f, [CC.fromParts(RR.fromNumber(x), RR.fromNumber(y))]));
+      } catch (e) {
+        if (e.name === 'CauchyError' && /recursão/.test(e.message)) throw e;
+        return null;
+      }
+    };
+    return withItems(g, 'transform', (items) => flint().withPrec(64, () => mapItems(items, map, { steps })));
+  }, 'transform(g, z -> f(z), steps=) ou transform(g, A): imagem de g por uma função complexa ou matriz 2×2');
 
   // Gráficos de funções e dados: produzem primitivas marcadas como séries
   // de dados (intervalo vertical robusto e leitura de coordenadas por x).

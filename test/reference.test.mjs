@@ -74,6 +74,8 @@ const ERRORS = [
   'circle(0, -1)', 'circle(0, 1, foo = 2)', 'circle(0, 1, color = "x")', 'point("a")', 'polygon([0, 1])', 'infline(1, 1)',
   'arc(0, 1, 1, 0)', 'circle(0, 1) - 1', 'draw(3)', 'draw(point(0), zoom = 2)', 'point(0, opacity = 2)', 'point(0, dash = "x")',
   'point(0, marker = "x")', 'draw(point(0), aspect = "x")', 'curve(t -> t, 1, 0)', 'rgb(2, 0, 0)', 'arc(0, 1, i, 2)',
+  'scale(point(0), 0)', 'transform(point(0), [1, 2, 3; 4, 5, 6])', 'transform(point(0), [1, 2; 2, 4])', 'transform(ray(0, 1), exp)',
+  'translate(3, 1)', 'rotate(point(0), "a")',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

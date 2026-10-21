@@ -187,3 +187,48 @@ test('notebooks de exemplo avaliam sem erros', async () => {
     }
   }
 });
+
+test('transformações afins mantêm círculos e arcos exatos', () => {
+  const nb = new Notebook();
+  const [t, r, s, f, e, m] = nb.update([
+    { id: 't', src: 'translate(circle(0, 1) + point((1, 1)), 2 + i)' },
+    { id: 'r', src: 'rotate(arc(1, 1, 0, pi/2), pi/2, 1) |> scale(2)' },
+    { id: 's', src: 'scale(circle(0, 1), (2, 1))' },
+    { id: 'f', src: 'reflect(arc(0, 1, 0, pi/2), 0, 1)' },
+    { id: 'e', src: 'scale(group(segment(0, 1), color = 2), 3, 1)' },
+    { id: 'm', src: 'transform(text("a", 1), [0, -1; 1, 0])' },
+  ]).map((x) => x.display);
+  const close = (a, b) => a.every((x, k) => Math.abs(x - b[k]) < 1e-12);
+  assert.deepEqual(t.items[0].c, [2, 1]);
+  assert.deepEqual(t.items[1].pts, [[3, 2]]);
+  const ar = r.items[0];
+  assert.ok(close([...ar.c, ar.r, ar.t0, ar.t1], [2, 0, 2, Math.PI / 2, Math.PI]));
+  assert.equal(s.items[0].g, 'line');
+  assert.equal(s.items[0].closed, true);
+  assert.ok(s.items[0].pts.some((p) => Math.abs(p[0] - 2) < 1e-12));
+  const fr = f.items[0];
+  assert.ok(close([fr.t0, fr.t1], [-Math.PI / 2, 0]));
+  assert.equal(e.items[0].g, 'group');
+  assert.deepEqual(e.items[0].items[0].pts, [[-2, 0], [1, 0]]);
+  assert.ok(close(m.items[0].p, [0, 1]));
+});
+
+test('transform com função amostra e mapeia os pontos', () => {
+  const nb = new Notebook();
+  const [sq, ci, ar, bad] = nb.update([
+    { id: 'sq', src: 'transform(segment(0, 1 + i), z -> z^2, steps = 4)' },
+    { id: 'ci', src: 'transform(circle(0, 1), z -> 1/z)' },
+    { id: 'ar', src: 'transform(arrow(1, 2), exp)' },
+    { id: 'bad', src: 'transform(infline(0, 1), exp)' },
+  ]);
+  const pts = sq.display.items[0].pts;
+  assert.equal(pts.length, 5);
+  assert.ok(Math.abs(pts[2][0]) < 1e-12 && Math.abs(pts[2][1] - 0.5) < 1e-12);
+  assert.ok(Math.abs(pts[4][1] - 2) < 1e-12);
+  const c = ci.display.items[0];
+  assert.equal(c.closed, true);
+  assert.ok(c.pts.every((p) => Math.abs(Math.hypot(...p) - 1) < 1e-9));
+  assert.equal(ar.display.items[0].arrow, true);
+  assert.equal(bad.status, 'error');
+  assert.match(bad.error.message, /retas infinitas/);
+});

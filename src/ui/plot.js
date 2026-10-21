@@ -232,6 +232,19 @@ function markerStyle(a) {
   return { fill: hollow ? 'none' : c, stroke: hollow ? c : 'none', 'stroke-width': a.width ?? 1.4, opacity: a.opacity ?? undefined };
 }
 
+// Ponta de seta em b, apontando de a para b (coordenadas de tela); devolve o
+// comprimento da ponta.
+function arrowHead(body, [ax, ay], [bx, by], a, st) {
+  const len = Math.hypot(bx - ax, by - ay) || 1;
+  const ux = (bx - ax) / len, uy = (by - ay) / len;
+  const h = Math.min(len, 7 + 2 * (a.width ?? 1.5)), w = h * 0.45;
+  el('path', {
+    d: `M${bx},${by}L${bx - ux * h - uy * w},${by - uy * h + ux * w}L${bx - ux * h + uy * w},${by - uy * h - ux * w}Z`,
+    ...st, fill: st.stroke, 'stroke-dasharray': undefined,
+  }, body);
+  return h;
+}
+
 function drawLeaf(it, body, { X, Y, P, kx, ky, W, H }) {
   const a = it.attrs;
   switch (it.g) {
@@ -258,7 +271,15 @@ function drawLeaf(it, body, { X, Y, P, kx, ky, W, H }) {
         prev = y;
       }
       if (it.closed && !broken && path) path += 'Z';
-      el('path', { d: path, ...styleOf(a, { width: it.data ? 1.8 : 1.5 }) }, body);
+      const st = styleOf(a, { width: it.data ? 1.8 : 1.5 });
+      el('path', { d: path, ...st }, body);
+      if (it.arrow) {
+        // Ponta na direção do último trecho (seta transformada).
+        const ps = it.pts.filter(Boolean);
+        const b = ps[ps.length - 1];
+        const q = [...ps].reverse().find((p) => Math.hypot(X(p[0]) - X(b[0]), Y(p[1]) - Y(b[1])) > 2);
+        if (b && q) arrowHead(body, [X(q[0]), Y(q[1])], [X(b[0]), Y(b[1])], a, st);
+      }
       return;
     }
     case 'circle':
@@ -272,17 +293,12 @@ function drawLeaf(it, body, { X, Y, P, kx, ky, W, H }) {
       return;
     }
     case 'arrow': {
+      const st = styleOf(a);
       const [ax, ay] = [X(it.pts[0][0]), Y(it.pts[0][1])];
       const [bx, by] = [X(it.pts[1][0]), Y(it.pts[1][1])];
+      const h = arrowHead(body, [ax, ay], [bx, by], a, st);
       const len = Math.hypot(bx - ax, by - ay) || 1;
-      const ux = (bx - ax) / len, uy = (by - ay) / len;
-      const h = Math.min(len, 7 + 2 * (a.width ?? 1.5)), w = h * 0.45;
-      const st = styleOf(a);
-      el('path', { d: `M${ax},${ay}L${bx - ux * h * 0.8},${by - uy * h * 0.8}`, ...st, fill: 'none' }, body);
-      el('path', {
-        d: `M${bx},${by}L${bx - ux * h - uy * w},${by - uy * h + ux * w}L${bx - ux * h + uy * w},${by - uy * h - ux * w}Z`,
-        ...st, fill: st.stroke, 'stroke-dasharray': undefined,
-      }, body);
+      el('path', { d: `M${ax},${ay}L${bx - ((bx - ax) / len) * h * 0.8},${by - ((by - ay) / len) * h * 0.8}`, ...st, fill: 'none' }, body);
       return;
     }
     case 'infline':
