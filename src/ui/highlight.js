@@ -53,7 +53,7 @@ export function highlight(src, builtins = new Set(), err = null) {
 // Digitação de símbolos: o par ASCII que termina em `end` vira o caractere
 // Unicode correspondente, se for de fato esse operador (não está em string
 // ou comentário, nem faz parte de outro token).
-const SYMBOLS = { '->': '→', '<-': '←', '=>': '⇒', '|>': '▷' };
+const SYMBOLS = { '->': '→', '<-': '←', '=>': '⇒', '|>': '▷', '<=': '≤', '>=': '≥', '!=': '≠' };
 
 export function symbolAt(src, end) {
   const pair = src.slice(end - 2, end);

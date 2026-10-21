@@ -13,4 +13,9 @@ test('symbolAt troca só operadores, fora de strings e comentários', () => {
   assert.equal(symbolAt('# t ->', 6), null);
   assert.equal(symbolAt('f(t ->)', 6), '→');
   assert.equal(symbolAt('a - b', 3), null);
+  assert.equal(symbolAt('x <=', 4), '≤');
+  assert.equal(symbolAt('x >=', 4), '≥');
+  assert.equal(symbolAt('x !=', 4), '≠');
+  assert.equal(symbolAt('x ==', 4), null);
+  assert.equal(symbolAt('"x <=', 5), null);
 });

@@ -637,11 +637,11 @@ function applyLang(lang) {
   for (const c of state.cells) if (c.result) { c.relang = true; showResult(c, c.result); c.relang = false; }
 }
 
-// Troca ->, <-, => e |> pelos símbolos →, ←, ⇒ e ▷ quando o segundo
+// Troca ->, <-, =>, |>, <=, >= e != por →, ←, ⇒, ▷, ≤, ≥ e ≠ quando o segundo
 // caractere é digitado. Usa execCommand para que Ctrl+Z desfaça a troca; o
 // evento de entrada aninhado cuida do resto (devolve true nesse caso).
 function symbolize(ta, ev) {
-  if (!$('#unicode').checked || ev.inputType !== 'insertText' || (ev.data !== '>' && ev.data !== '-')) return false;
+  if (!$('#unicode').checked || ev.inputType !== 'insertText' || !['>', '-', '='].includes(ev.data)) return false;
   const end = ta.selectionStart;
   if (end !== ta.selectionEnd) return false;
   const sym = symbolAt(ta.value, end);
