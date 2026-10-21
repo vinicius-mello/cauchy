@@ -130,7 +130,7 @@ function r(d, slots, inner) {
     case 'bool': return `<span class="bool">${d.v ? 'true' : 'false'}</span>`;
     case 'fn': return `<span class="fnv">ƒ${d.name ? ' ' + esc(d.name) : ''}${d.arity !== null && d.arity !== undefined ? `<span class="note">/${d.arity}</span>` : ''}</span>`;
     case 'ring': return `<span class="ring">${ringName(d.s)}</span>`;
-    case 'plot':
+    case 'graphics':
     case 'widget': {
       const k = slots.length;
       slots.push(d);

@@ -5,7 +5,7 @@ import {
   Elem, Ring, ZZ, QQ, RR, PolyRing, MatSpace, Poly, Mat, flint,
   add, sub, mul, div, neg, pow, equal, compare, floorDiv, mod, commonRing, coerce,
 } from '../runtime/rings.js';
-import { Tuple, Func, UNIT, Widget } from '../runtime/values.js';
+import { Tuple, Func, UNIT, Widget, Graphic, asGraphic } from '../runtime/values.js';
 import { fail } from '../runtime/errors.js';
 
 export class Env {
@@ -308,6 +308,11 @@ export function binop(op, l, r) {
     f.parts = [l, r];
     return f;
   }
+  if (l instanceof Graphic || r instanceof Graphic) {
+    const a = asGraphic(l), b = asGraphic(r);
+    if (op === '+' && a && b) return a.concat(b);
+    fail(`operador ${op} não se aplica a ${typeName(l)} e ${typeName(r)}`);
+  }
   if (typeof l === 'string' || typeof r === 'string') {
     if (op === '+') return toStr(l) + toStr(r);
     if (op === '*' && typeof l === 'string' && r instanceof Elem) return l.repeat(toInt(r));
@@ -363,6 +368,7 @@ export function typeName(v) {
   if (typeof v === 'boolean') return 'booleano';
   if (v instanceof Func) return 'função';
   if (v instanceof Ring) return 'anel';
+  if (v instanceof Graphic) return 'gráfico';
   return typeof v;
 }
 

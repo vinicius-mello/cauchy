@@ -51,6 +51,19 @@ export const EXAMPLES = [
     ],
   },
   {
+    title: { pt: 'Geometria', en: 'Geometry' },
+    cells: [
+      { pt: '# Primitivas gráficas: pontos são complexos ou tuplas (x, y);\n# atributos são argumentos nomeados.\nn = slider(3, 16, value = 5)', en: '# Graphics primitives: points are complex numbers or tuples (x, y);\n# attributes are keyword arguments.\nn = slider(3, 16, value = 5)' },
+      'vs = [exp(2pi*i*k/n) | k <- 1..n]',
+      'draw([\n  circle(0, 1, dash = "dot", color = "ink"),\n  polygon(vs, fill = true, opacity = 0.25),\n  [segment(0, v) | v <- vs] |> style(color = "gray", width = 0.5),\n  points(vs, color = 2, size = 4),\n  text(n, 0, fontsize = 18)\n], axes = false)',
+      { pt: '# Círculos de Ford: tangentes entre si, um para cada p/q\n[circle(p/q + i/(2q^2), 1/(2q^2)) | q <- 1..12, p <- 0..q, gcd(p, q) == 1] |> draw(xlim = [0, 1], ylim = [0, 1/2])', en: '# Ford circles: mutually tangent, one for each p/q\n[circle(p/q + i/(2q^2), 1/(2q^2)) | q <- 1..12, p <- 0..q, gcd(p, q) == 1] |> draw(xlim = [0, 1], ylim = [0, 1/2])' },
+      { pt: '# Imagem de uma grade por z -> z^2\n[curve(t -> (t + k*i/4)^2, -1, 1) | k <- -4..4] + [curve(t -> (k/4 + t*i)^2, -1, 1, color = 2) | k <- -4..4]', en: '# Image of a grid under z -> z^2\n[curve(t -> (t + k*i/4)^2, -1, 1) | k <- -4..4] + [curve(t -> (k/4 + t*i)^2, -1, 1, color = 2) | k <- -4..4]' },
+      { pt: '# Gráficos de funções se combinam com primitivas usando +\na = slider(-3, 3, 0.1, value = 1)', en: '# Function plots combine with primitives using +\na = slider(-3, 3, 0.1, value = 1)' },
+      'plot(sin, -4, 4) + infline((a, sin(a)), (a + 1, sin(a) + cos(a)), color = 2, dash = "dash") + point((a, sin(a)), size = 4, color = 2)',
+      '[disk(exp(2pi*i*k/12), 0.2, color = hsl(k/12, 0.8, 0.5)) | k <- 1..12] + [arrow(0, 0.75*exp(2pi*i*k/12)) | k <- 1..12]',
+    ],
+  },
+  {
     title: { pt: 'FLINT direto', en: 'Raw FLINT' },
     cells: [
       { pt: '# Qualquer função da aba FLINT da referência pode ser chamada\n# diretamente; prec e contexto são preenchidos automaticamente.\nflint("arb_gamma", 1/3)', en: '# Any function from the FLINT tab of the reference can be called\n# directly; prec and context are filled in automatically.\nflint("arb_gamma", 1/3)' },

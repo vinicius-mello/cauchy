@@ -242,11 +242,7 @@ sup { font-size: .68em; line-height: 0; }
 .plot .frame { fill: none; stroke: var(--line); }
 .plot .tick { font-size: 11px; fill: var(--muted); }
 .plot .ptitle { font-size: 13px; fill: var(--ink); }
-.plot path.series { fill: none; stroke-width: 1.8; stroke-linejoin: round; }
-.plot .series.s0 { stroke: var(--s0); fill: var(--s0); } .plot .series.s1 { stroke: var(--s1); fill: var(--s1); }
-.plot .series.s2 { stroke: var(--s2); fill: var(--s2); } .plot .series.s3 { stroke: var(--s3); fill: var(--s3); }
-.plot .series.s4 { stroke: var(--s4); fill: var(--s4); } .plot .series.s5 { stroke: var(--s5); fill: var(--s5); }
-.plot path.series { fill: none !important; }
+.plot .gtext { font-family: var(--sans); }
 .plot .hover line { stroke: var(--muted); stroke-dasharray: 3 3; }
 .plot .hover circle { fill: var(--accent); }
 .plot .hoverlabel { fill: var(--ink); }

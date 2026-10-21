@@ -6,7 +6,7 @@ import {
   Zmod, GF, Poly, Mat, flint, commonRing, coerce, isScalarRing, finiteOr,
   add, sub, mul, div, neg, pow, compare, equal, divrem, inv, matInv, floor, ceil, sign, isZero,
 } from '../runtime/rings.js';
-import { Tuple, Func, Factored, Plot, Widget, UNIT } from '../runtime/values.js';
+import { Tuple, Func, Factored, Graphic, Widget, UNIT, asGraphic } from '../runtime/values.js';
 import { fail } from '../runtime/errors.js';
 import { showText } from '../runtime/show.js';
 import {
@@ -1105,27 +1105,209 @@ export function makeGlobals() {
     });
     return pts;
   };
+  // Ponto do plano: número (real ou complexo) ou tupla (x, y).
+  const pt = (p, what = 'ponto') => {
+    if (p instanceof Tuple && p.items.length === 2) {
+      const xy = p.items.map(toNum);
+      if (xy.every(Number.isFinite)) return xy;
+    } else if (p instanceof Elem && (p.ring === ZZ || p.ring === QQ || p.ring === RR || p.ring === CC)) {
+      const c = CC.coerce(p);
+      const xy = [RR.mid(CC.re(c)), RR.mid(CC.im(c))];
+      if (xy.every(Number.isFinite)) return xy;
+    }
+    fail(`${what} deve ser um número complexo ou uma tupla (x, y)`);
+  };
+  const pts = (ps, min, what = 'pontos') => {
+    const out = list(ps).map((p) => pt(p));
+    if (out.length < min) fail(`${what}: esperava pelo menos ${min} pontos`);
+    return out;
+  };
+  const real = (v, what) => {
+    const x = toNum(v);
+    if (!Number.isFinite(x)) fail(`${what} deve ser um número real`);
+    return x;
+  };
+  const positive = (v, what) => {
+    const x = real(v, what);
+    if (!(x > 0)) fail(`${what} deve ser positivo`);
+    return x;
+  };
+
+  // Atributos visuais, validados aqui e interpretados por src/ui/plot.js.
+  const COLOR_NAMES = new Set(('black white gray grey red green blue yellow orange purple brown pink cyan magenta navy teal ' +
+    'olive maroon lime aqua fuchsia silver gold indigo violet crimson coral salmon tomato orchid plum tan khaki beige ' +
+    'turquoise darkred darkgreen darkblue darkorange darkviolet darkgray lightgray lightblue lightgreen steelblue skyblue ' +
+    'royalblue forestgreen seagreen slategray chocolate sienna firebrick none ink').split(' '));
+  const color = (v, name) => {
+    if (v instanceof Elem && v.ring === ZZ) {
+      const k = toInt(v);
+      if (k >= 1 && k <= 6) return k;
+    }
+    if (typeof v === 'string') {
+      const c = v.trim().toLowerCase();
+      if (COLOR_NAMES.has(c) || /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/.test(c) || /^(rgb|hsl)\([\d.,%\s]+\)$/.test(c)) return c;
+    }
+    fail(`${name} deve ser uma cor: nome, "#rrggbb", rgb(r, g, b), hsl(h, s, l) ou índice de 1 a 6`);
+  };
+  const DASHES = { dot: '1.5 3', dash: '6 4', dashdot: '6 3 1.5 3' };
+  const MARKERS = ['dot', 'circle', 'square', 'diamond', 'cross', 'plus'];
+  const ATTRS = {
+    color,
+    fill: (v, k) => (typeof v === 'boolean' ? v : color(v, k)),
+    width: (v, k) => Math.min(100, positive(v, k)),
+    size: (v, k) => Math.min(100, positive(v, k)),
+    fontsize: (v, k) => Math.min(100, positive(v, k)),
+    opacity: (v, k) => {
+      const x = real(v, k);
+      if (x < 0 || x > 1) fail(`${k} deve estar entre 0 e 1`);
+      return x;
+    },
+    dash: (v, k) => {
+      if (v === false) return null;
+      if (typeof v === 'string') {
+        const d = DASHES[v.trim()] ?? v.trim();
+        if (/^\d+(\.\d+)?([\s,]+\d+(\.\d+)?)*$/.test(d)) return d;
+      }
+      fail(`${k} deve ser "dot", "dash", "dashdot" ou uma sequência como "4 2"`);
+    },
+    marker: (v, k) => {
+      if (typeof v === 'string' && MARKERS.includes(v)) return v;
+      fail(`${k} deve ser um de: ${MARKERS.join(', ')}`);
+    },
+    label: (v) => (typeof v === 'string' ? v : showText(v)),
+  };
+  const attrsOf = (kw, skip = []) => {
+    const out = {};
+    for (const [k, v] of Object.entries(kw)) {
+      if (skip.includes(k) || v === undefined) continue;
+      if (!ATTRS[k]) fail(`atributo gráfico desconhecido: ${k}`);
+      out[k] = ATTRS[k](v, k);
+    }
+    return out;
+  };
+  const prim = (g, data, kw, skip, defaults = {}) => new Graphic([{ g, ...data, attrs: { ...defaults, ...attrsOf(kw, skip) } }]);
+  const graphic = (v, what = 'argumento') => asGraphic(v) ?? fail(`${what} deve ser um gráfico ou uma lista de gráficos`);
+  const distinct = (a, b) => {
+    if (a[0] === b[0] && a[1] === b[1]) fail('os dois pontos devem ser distintos');
+    return [a, b];
+  };
+
+  def('point', 1, ([p], kw) => prim('points', { pts: [pt(p)] }, kw), 'point(p): ponto (complexo ou tupla (x, y))');
+  def('points', 1, ([ps], kw) => prim('points', { pts: pts(ps, 0) }, kw), 'points(ps): vários pontos');
+  def('segment', 2, ([a, b], kw) => prim('line', { pts: [pt(a), pt(b)] }, kw), 'segment(a, b): segmento de a a b');
+  def('arrow', 2, ([a, b], kw) => prim('arrow', { pts: distinct(pt(a), pt(b)) }, kw), 'arrow(a, b): seta de a para b');
+  def('line', 1, ([ps], kw) => prim('line', { pts: pts(ps, 2, 'line'), closed: kw.closed === true }, kw, ['closed']),
+    'line([p₁, p₂, …], closed=false): poligonal');
+  def('polygon', 1, ([ps], kw) => prim('line', { pts: pts(ps, 3, 'polygon'), closed: true }, kw), 'polygon([p₁, p₂, …]): polígono');
+  def('rect', 2, ([a, b], kw) => {
+    const [[x0, y0], [x1, y1]] = [pt(a), pt(b)];
+    return prim('line', { pts: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], closed: true }, kw);
+  }, 'rect(a, b): retângulo de cantos opostos a e b');
+  def('infline', 2, ([a, b], kw) => prim('infline', { pts: distinct(pt(a), pt(b)) }, kw), 'infline(a, b): reta por a e b');
+  def('ray', 2, ([a, b], kw) => prim('ray', { pts: distinct(pt(a), pt(b)) }, kw), 'ray(a, b): semirreta de a passando por b');
+  def('circle', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio') }, kw), 'circle(c, r): circunferência');
+  def('disk', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio') }, kw, [], { fill: true }), 'disk(c, r): disco');
+  const arcData = (c, r, t0, t1) => {
+    const a0 = real(t0, 'ângulo'), a1 = real(t1, 'ângulo');
+    if (!(a1 > a0)) fail('o ângulo final deve ser maior que o inicial');
+    return { c: pt(c, 'centro'), r: positive(r, 'raio'), t0: a0, t1: Math.min(a1, a0 + 2 * Math.PI) };
+  };
+  def('arc', 4, ([c, r, t0, t1], kw) => prim('arc', arcData(c, r, t0, t1), kw), 'arc(c, r, θ₀, θ₁): arco de circunferência');
+  def('sector', 4, ([c, r, t0, t1], kw) => prim('arc', { ...arcData(c, r, t0, t1), sector: true }, kw, [], { fill: true }),
+    'sector(c, r, θ₀, θ₁): setor circular');
+  def('curve', 3, ([f, a, b], kw) => {
+    const n = kw.points !== undefined ? Math.min(20000, Math.max(2, toInt(kw.points))) : 400;
+    const lo = real(a, 'início'), hi = real(b, 'fim');
+    if (!(hi > lo)) fail('intervalo da curva inválido');
+    const out = [];
+    flint().withPrec(64, () => {
+      for (let k = 0; k <= n; k++) {
+        let p = null;
+        try {
+          p = pt(callValue(fn(f), [RR.fromNumber(lo + ((hi - lo) * k) / n)]));
+        } catch (e) {
+          if (e.name === 'CauchyError' && /recursão/.test(e.message)) throw e;
+        }
+        out.push(p);
+      }
+    });
+    return prim('line', { pts: out }, kw, ['points']);
+  }, 'curve(t -> z(t), a, b, points=400): curva paramétrica');
+  def('text', 2, ([str, p], kw) => {
+    const POS = ['c', 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
+    const pos = kw.pos ?? 'c';
+    if (!POS.includes(pos)) fail(`pos deve ser um de: ${POS.join(', ')}`);
+    return prim('text', { s: typeof str === 'string' ? str : showText(str), p: pt(p), pos }, kw, ['pos']);
+  }, 'text(s, p, pos="c"): texto no ponto p');
+  def('group', null, (args, kw) => {
+    const g = graphic(args, 'group');
+    return new Graphic([{ g: 'group', items: g.items, attrs: attrsOf(kw) }], g.opts);
+  }, 'group(g₁, g₂, …, attrs): grupo; atributos valem para os filhos que não os definem');
+  def('style', 1, ([g], kw) => {
+    const a = attrsOf(kw);
+    const apply = (it) => ({ ...it, attrs: { ...it.attrs, ...a }, ...(it.items ? { items: it.items.map(apply) } : {}) });
+    const G = graphic(g, 'style');
+    return new Graphic(G.items.map(apply), G.opts);
+  }, 'style(g, attrs): impõe atributos a todas as primitivas de g');
+  def('draw', null, ([g], kw) => {
+    const G = graphic(g ?? [], 'draw');
+    const opts = { ...G.opts };
+    const lim = limits(kw);
+    if (lim.xlim) opts.xlim = lim.xlim;
+    if (lim.ylim) opts.ylim = lim.ylim;
+    for (const [k, v] of Object.entries(kw)) {
+      if (k === 'xlim' || k === 'ylim') continue;
+      if (k === 'aspect') {
+        if (v !== 'equal' && v !== 'auto') fail('aspect deve ser "equal" ou "auto"');
+        opts.aspect = v;
+      } else if (k === 'axes' || k === 'grid' || k === 'frame') opts[k] = toBool(v, k);
+      else if (k === 'title') opts.title = typeof v === 'string' ? v : showText(v);
+      else if (k === 'width' || k === 'height') opts[k] = Math.min(2000, Math.max(100, positive(v, k)));
+      else fail(`opção desconhecida de draw: ${k}`);
+    }
+    return new Graphic(G.items, opts);
+  }, 'draw(g, xlim=, ylim=, aspect="equal", axes=true, grid=true, frame=true, title=, width=, height=)');
+  const unit = (v, what) => {
+    const x = real(v, what);
+    if (x < 0 || x > 1) fail(`${what} deve estar entre 0 e 1`);
+    return x;
+  };
+  def('rgb', 3, ([r, g, b]) => `rgb(${[r, g, b].map((v) => Math.round(unit(v, 'componente de cor') * 255)).join(', ')})`,
+    'rgb(r, g, b): cor com componentes em [0, 1]');
+  def('hsl', 3, ([h, s, l]) => {
+    const hh = ((real(h, 'matiz') % 1) + 1) % 1;
+    return `hsl(${+(hh * 360).toFixed(2)}, ${+(unit(s, 'saturação') * 100).toFixed(2)}%, ${+(unit(l, 'luminosidade') * 100).toFixed(2)}%)`;
+  }, 'hsl(h, s, l): cor por matiz (h em voltas, 0 a 1), saturação e luminosidade');
+
+  // Gráficos de funções e dados: produzem primitivas marcadas como séries
+  // de dados (intervalo vertical robusto e leitura de coordenadas por x).
+  const PLOT_OPTS = ['points', 'xlim', 'ylim', 'title', 'joined'];
+  const plotOpts = (kw, aspect) => ({ aspect, title: kw.title ?? null, ...limits(kw) });
   def('plot', null, ([fs, a, b], kw) => {
     const funcs = Array.isArray(fs) ? fs : [fs];
     const n = kw.points ? toInt(kw.points) : 400;
-    const series = funcs.map((f, i) => ({ points: sample(fn(f), a, b, n), label: f.name ?? `f${funcs.length > 1 ? i + 1 : ''}` }));
-    return new Plot({ kind: 'line', series, title: kw.title ?? null, ...limits(kw) });
-  }, 'plot(f, a, b) ou plot([f, g], a, b, points=400, xlim=[lo, hi], ylim=[lo, hi])');
+    const extra = attrsOf(kw, PLOT_OPTS);
+    const items = funcs.map((f, i) => ({
+      g: 'line', data: true, pts: sample(fn(f), a, b, n),
+      attrs: { color: (i % 6) + 1, ...(funcs.length > 1 ? { label: f.name ?? `f${i + 1}` } : {}), ...extra },
+    }));
+    return new Graphic(items, plotOpts(kw, 'auto'));
+  }, 'plot(f, a, b) ou plot([f, g], a, b, points=400, xlim=[lo, hi], ylim=[lo, hi], attrs)');
   def('listplot', null, ([xs], kw) => {
-    const items = list(xs);
-    const points = items.map((p, i) => {
+    const points = list(xs).map((p, i) => {
       if (p instanceof Tuple) return [toNum(p.items[0]), toNum(p.items[1])];
       return [i + 1, toNum(p)];
-    });
-    return new Plot({ kind: kw.joined === true ? 'line' : 'scatter', series: [{ points, label: '' }], title: kw.title ?? null, ...limits(kw) });
-  }, 'listplot(ys) ou listplot([(x, y), ...], joined=false, xlim=, ylim=)');
+    }).map(([x, y]) => [x, Number.isFinite(y) ? y : null]);
+    const item = { g: kw.joined === true ? 'line' : 'points', data: true, pts: points, attrs: { color: 1, ...attrsOf(kw, PLOT_OPTS) } };
+    return new Graphic([item], plotOpts(kw, 'auto'));
+  }, 'listplot(ys) ou listplot([(x, y), ...], joined=false, xlim=, ylim=, attrs)');
   def('complexplot', null, ([zs], kw) => {
     const points = list(zs).map((z) => {
       const c = CC.coerce(elem(z));
       return [RR.mid(CC.re(c)), RR.mid(CC.im(c))];
     });
-    return new Plot({ kind: 'scatter', series: [{ points, label: '' }], equal: true, title: kw.title ?? null, ...limits(kw) });
-  }, 'complexplot(zs, xlim=, ylim=): pontos no plano complexo');
+    return new Graphic([{ g: 'points', pts: points, attrs: { color: 1, ...attrsOf(kw, PLOT_OPTS) } }], plotOpts(kw, 'equal'));
+  }, 'complexplot(zs, xlim=, ylim=, attrs): pontos no plano complexo');
 
   // --------------------------------------------------------- widgets
   const widget = (kind, spec, defVal, parse) => {

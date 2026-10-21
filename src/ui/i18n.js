@@ -24,6 +24,7 @@ const STRINGS = {
     'fatal-restart': 'erro interno — reiniciando',
     'cell.run': 'Avaliar (Shift+Enter)', 'cell.up': 'Mover para cima', 'cell.down': 'Mover para baixo',
     'cell.add': 'Nova célula abaixo (Alt+Enter)', 'cell.del': 'Excluir célula', 'cell.code': 'código da célula',
+    graphicsTruncated: (n) => `só as primeiras ${n} primitivas foram desenhadas`,
     error: 'erro', digits: (n) => `${n} dígitos`, matrix: (r, c) => `matriz ${r}×${c}`,
     'link-copied': 'Link copiado para a área de transferência', 'link-in-url': 'Link no endereço da página',
     'bad-file': (m) => `Arquivo inválido: ${m}`, 'bad-link': 'Link de notebook inválido',
@@ -53,6 +54,7 @@ const STRINGS = {
     'fatal-restart': 'internal error — restarting',
     'cell.run': 'Evaluate (Shift+Enter)', 'cell.up': 'Move up', 'cell.down': 'Move down',
     'cell.add': 'New cell below (Alt+Enter)', 'cell.del': 'Delete cell', 'cell.code': 'cell code',
+    graphicsTruncated: (n) => `only the first ${n} primitives were drawn`,
     error: 'error', digits: (n) => `${n} digits`, matrix: (r, c) => `${r}×${c} matrix`,
     'link-copied': 'Link copied to the clipboard', 'link-in-url': 'Link is in the address bar',
     'bad-file': (m) => `Invalid file: ${m}`, 'bad-link': 'Invalid notebook link',
@@ -71,6 +73,11 @@ export const SYNTAX_NOTES = {
 precisão não decide geram erro — aumente <code>prec</code>.</p>
 <p>Listas e matrizes são indexadas a partir de 1; <code>xs[-1]</code> é o último elemento.
 Um polinômio é também uma função: <code>p(3)</code>, <code>p(x + 1)</code>.</p>
+<p>Gráficos são valores: primitivas como <code>circle(c, r)</code> recebem pontos como
+complexos (<code>1 + 2i</code>) ou tuplas <code>(x, y)</code> e atributos nomeados
+(<code>color</code>, <code>fill</code>, <code>width</code>, <code>dash</code>, <code>opacity</code>,
+<code>size</code>, <code>marker</code>, <code>label</code>, <code>fontsize</code>). Combine com
+<code>+</code> ou numa lista; <code>draw</code> ajusta a janela.</p>
 <p><kbd>Shift</kbd>+<kbd>Enter</kbd> avalia · <kbd>Alt</kbd>+<kbd>Enter</kbd> nova célula ·
 <kbd>Ctrl</kbd>+<kbd>.</kbd> interrompe</p>`,
   en: `<p>Integers and rationals are exact. Decimals and transcendental functions produce
@@ -78,6 +85,11 @@ Um polinômio é também uma função: <code>p(3)</code>, <code>p(x + 1)</code>.
 current precision cannot decide raise an error — increase <code>prec</code>.</p>
 <p>Lists and matrices are 1-indexed; <code>xs[-1]</code> is the last element.
 A polynomial is also a function: <code>p(3)</code>, <code>p(x + 1)</code>.</p>
+<p>Graphics are values: primitives such as <code>circle(c, r)</code> take points as
+complex numbers (<code>1 + 2i</code>) or tuples <code>(x, y)</code> and keyword attributes
+(<code>color</code>, <code>fill</code>, <code>width</code>, <code>dash</code>, <code>opacity</code>,
+<code>size</code>, <code>marker</code>, <code>label</code>, <code>fontsize</code>). Combine them with
+<code>+</code> or in a list; <code>draw</code> sets the window.</p>
 <p><kbd>Shift</kbd>+<kbd>Enter</kbd> evaluates · <kbd>Alt</kbd>+<kbd>Enter</kbd> new cell ·
 <kbd>Ctrl</kbd>+<kbd>.</kbd> interrupts</p>`,
 };
@@ -98,6 +110,7 @@ R = QQ[x]; x = gen(R) # polinômios
 A = [1, 2; 3, 4]      # matriz
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # entrada reativa
+circle(0, 1, color = "red") + point(1/2 + i/2)
 flint("arb_gamma", 1/3)   # FLINT direto`,
   en: `n = 2^64 + 1          # definition
 f(x) = x^2 + 1        # function
@@ -114,6 +127,7 @@ R = QQ[x]; x = gen(R) # polynomials
 A = [1, 2; 3, 4]      # matrix
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # reactive input
+circle(0, 1, color = "red") + point(1/2 + i/2)
 flint("arb_gamma", 1/3)   # raw FLINT call`,
 };
 
@@ -166,6 +180,8 @@ const WORDS = {
   'operando de and': 'operand of and', 'operando de or': 'operand of or', 'operando de not': 'operand of not',
   filtro: 'filter', guarda: 'guard', predicado: 'predicate', 'fim da entrada': 'end of input',
   'quebra de linha': 'line break', fim: 'end',
+  'gráfico': 'graphic', ponto: 'point', centro: 'center', raio: 'radius', 'ângulo': 'angle', 'início': 'start',
+  matiz: 'hue', 'saturação': 'saturation', luminosidade: 'lightness', 'componente de cor': 'color component',
 };
 const w = (s) => WORDS[s] ?? s;
 
@@ -293,6 +309,21 @@ const RULES = [
   [/^valuation\(0, p\) é infinito$/, 'valuation(0, p) is infinite'],
   [/^Zmod\(n\) requer n > 1$/, 'Zmod(n) requires n > 1'],
   [/^(xlim|ylim) deve ser \[lo, hi\] com lo < hi$/, '$1 must be [lo, hi] with lo < hi'],
+  [/^(.+) deve ser um número complexo ou uma tupla \(x, y\)$/, (_, x) => `${w(x)} must be a complex number or a tuple (x, y)`],
+  [/^(.+): esperava pelo menos (\d+) pontos$/, '$1: expected at least $2 points'],
+  [/^(.+) deve ser um número real$/, (_, x) => `${w(x)} must be a real number`],
+  [/^(.+) deve ser positivo$/, (_, x) => `${w(x)} must be positive`],
+  [/^(.+) deve estar entre 0 e 1$/, (_, x) => `${w(x)} must be between 0 and 1`],
+  [/^(.+) deve ser uma cor: nome, "#rrggbb", rgb\(r, g, b\), hsl\(h, s, l\) ou índice de 1 a 6$/, '$1 must be a color: a name, "#rrggbb", rgb(r, g, b), hsl(h, s, l) or an index from 1 to 6'],
+  [/^(.+) deve ser "dot", "dash", "dashdot" ou uma sequência como "4 2"$/, '$1 must be "dot", "dash", "dashdot" or a sequence such as "4 2"'],
+  [/^(.+) deve ser um de: (.+)$/, '$1 must be one of: $2'],
+  [/^atributo gráfico desconhecido: (.+)$/, 'unknown graphics attribute: $1'],
+  [/^(.+) deve ser um gráfico ou uma lista de gráficos$/, (_, x) => `${w(x)} must be a graphic or a list of graphics`],
+  [/^os dois pontos devem ser distintos$/, 'the two points must be distinct'],
+  [/^o ângulo final deve ser maior que o inicial$/, 'the final angle must be greater than the initial one'],
+  [/^intervalo da curva inválido$/, 'invalid curve interval'],
+  [/^aspect deve ser "equal" ou "auto"$/, 'aspect must be "equal" or "auto"'],
+  [/^opção desconhecida de draw: (.+)$/, 'unknown draw option: $1'],
   [/^função FLINT desconhecida: (.+)$/, 'unknown FLINT function: $1'],
   [/^tipo FLINT desconhecido: (.+)$/, 'unknown FLINT type: $1'],
   [/^(.+) requer um anel Zmod\(n\)\/GF\(q\) como argumento$/, '$1 requires a Zmod(n)/GF(q) ring as an argument'],

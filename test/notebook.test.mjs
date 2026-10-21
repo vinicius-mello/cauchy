@@ -81,9 +81,9 @@ test('widgets: valor vem do estado da célula', () => {
 test('gráfico produz séries de pontos', () => {
   const nb = new Notebook();
   const [r] = nb.update([{ id: 'p', src: 'plot(t -> sin(t), 0, 3, points = 10)' }]);
-  assert.equal(r.display.t, 'plot');
-  assert.equal(r.display.series[0].points.length, 11);
-  assert.ok(Math.abs(r.display.series[0].points[5][1] - Math.sin(1.5)) < 1e-12);
+  assert.equal(r.display.t, 'graphics');
+  assert.equal(r.display.items[0].pts.length, 11);
+  assert.ok(Math.abs(r.display.items[0].pts[5][1] - Math.sin(1.5)) < 1e-12);
 });
 
 test('xlim/ylim fixam a janela dos gráficos', () => {
@@ -95,10 +95,95 @@ test('xlim/ylim fixam a janela dos gráficos', () => {
     { id: 'd', src: 'listplot([1, 2], xlim = [3, 1])' },
   ]);
   const [a, b, c, d] = res;
-  assert.deepEqual([a.display.xlim, a.display.ylim], [[2, 4], [-0.5, 0.5]]);
-  assert.equal(b.display.xlim, null);
-  assert.deepEqual(b.display.ylim, [0, 5]);
-  assert.deepEqual([c.display.xlim, c.display.ylim, c.display.equal], [[-1, 3], [-1, 1.5], true]);
+  assert.deepEqual([a.display.opts.xlim, a.display.opts.ylim], [[2, 4], [-0.5, 0.5]]);
+  assert.equal(b.display.opts.xlim, null);
+  assert.deepEqual(b.display.opts.ylim, [0, 5]);
+  assert.deepEqual([c.display.opts.xlim, c.display.opts.ylim, c.display.opts.aspect], [[-1, 3], [-1, 1.5], 'equal']);
   assert.equal(d.status, 'error');
   assert.match(d.error.message, /xlim deve ser \[lo, hi\]/);
+});
+
+test('primitivas gráficas: pontos, atributos e combinação', () => {
+  const nb = new Notebook();
+  const res = nb.update([
+    { id: 'a', src: 'circle(1 + i, 1/2, color = "red", dash = "dot", width = 2)' },
+    { id: 'b', src: 'segment((0, 0), 2) + point(i, marker = "square")' },
+    { id: 'c', src: '[polygon([0, 1, i], fill = true), text("z", 1, pos = "ne")]' },
+    { id: 'd', src: 'draw(arc(0, 1, 0, pi), xlim = [-2, 2], axes = false, aspect = "auto")' },
+    { id: 'e', src: 'plot(sin, 0, 1, points = 2, color = 3) + infline(0, 1)' },
+    { id: 'f', src: '[circle(0, 1), 3]' },
+  ]);
+  const [a, b, c, d, e, f] = res.map((r) => r.display);
+  assert.deepEqual(a.items, [{ g: 'circle', c: [1, 1], r: 0.5, attrs: { color: 'red', dash: '1.5 3', width: 2 } }]);
+  assert.deepEqual(b.items.map((x) => [x.g, x.pts]), [['line', [[0, 0], [2, 0]]], ['points', [[0, 1]]]]);
+  assert.equal(b.items[1].attrs.marker, 'square');
+  assert.equal(c.t, 'graphics');
+  assert.deepEqual(c.items.map((x) => x.g), ['line', 'text']);
+  assert.equal(c.items[0].closed, true);
+  assert.equal(c.items[1].pos, 'ne');
+  assert.deepEqual(d.opts, { xlim: [-2, 2], axes: false, aspect: 'auto' });
+  assert.equal(d.items[0].t1, Math.PI);
+  assert.deepEqual(e.items.map((x) => [x.g, x.attrs.color]), [['line', 3], ['infline', undefined]]);
+  assert.equal(e.opts.aspect, 'auto');
+  assert.equal(f.t, 'list');
+});
+
+test('group herda atributos e style os impõe', () => {
+  const nb = new Notebook();
+  const [g, s] = nb.update([
+    { id: 'g', src: 'g = group(circle(0, 1, color = 2), disk(1, 1), color = "red", width = 3)' },
+    { id: 's', src: 'g |> style(color = "blue")' },
+  ]).map((r) => r.display);
+  assert.equal(g.items[0].g, 'group');
+  assert.deepEqual(g.items[0].attrs, { color: 'red', width: 3 });
+  assert.deepEqual(g.items[0].items.map((x) => x.attrs), [{ color: 2 }, { fill: true }]);
+  assert.deepEqual(s.items[0].items.map((x) => x.attrs.color), ['blue', 'blue']);
+});
+
+test('curve amostra uma curva paramétrica e rgb/hsl produzem cores', () => {
+  const nb = new Notebook();
+  const [c, r, h] = nb.update([
+    { id: 'c', src: 'curve(t -> exp(i*t), 0, pi, points = 2)' },
+    { id: 'r', src: 'rgb(1, 1/2, 0)' },
+    { id: 'h', src: 'disk(0, 1, color = hsl(1/3, 1, 1/2))' },
+  ]).map((x) => x.display);
+  const pts = c.items[0].pts;
+  assert.equal(pts.length, 3);
+  assert.ok(Math.abs(pts[1][0]) < 1e-12 && Math.abs(pts[1][1] - 1) < 1e-12);
+  assert.equal(r.s, 'rgb(255, 128, 0)');
+  assert.equal(h.items[0].attrs.color, 'hsl(120, 100%, 50%)');
+});
+
+test('erros das primitivas gráficas', () => {
+  const nb = new Notebook();
+  const cases = {
+    'circle(0, -1)': /raio deve ser positivo/,
+    'circle(0, 1, foo = 2)': /atributo gráfico desconhecido: foo/,
+    'circle(0, 1, color = "blurple")': /color deve ser uma cor/,
+    'point("a")': /ponto deve ser um número complexo/,
+    'polygon([0, 1])': /polygon: esperava pelo menos 3 pontos/,
+    'infline(1, 1)': /distintos/,
+    'arc(0, 1, 1, 0)': /ângulo final/,
+    'circle(0, 1) - circle(0, 1)': /operador - não se aplica a gráfico e gráfico/,
+    'draw(3)': /draw deve ser um gráfico/,
+    'draw(circle(0, 1), zoom = 2)': /opção desconhecida de draw: zoom/,
+    'point(0, opacity = 2)': /opacity deve estar entre 0 e 1/,
+  };
+  const srcs = Object.keys(cases);
+  const res = nb.update(srcs.map((src, k) => ({ id: `e${k}`, src })));
+  res.forEach((r, k) => {
+    assert.equal(r.status, 'error', srcs[k]);
+    assert.match(r.error.message, cases[srcs[k]]);
+  });
+});
+
+test('notebooks de exemplo avaliam sem erros', async () => {
+  const { EXAMPLES, pick } = await import('../src/ui/examples.js');
+  for (const ex of EXAMPLES) {
+    for (const lang of ['pt', 'en']) {
+      const nb = new Notebook();
+      const res = nb.update(ex.cells.map((c, k) => ({ id: `x${k}`, src: pick(c, lang) })));
+      for (const r of res) assert.equal(r.status, 'ok', `${pick(ex.title, lang)}: ${r.error?.message}`);
+    }
+  }
 });

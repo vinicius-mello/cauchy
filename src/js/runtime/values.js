@@ -26,13 +26,34 @@ export class Factored extends Array {
   }
 }
 
-export class Plot {
-  constructor(data) {
-    this.data = data;
+// Gráfico: lista de primitivas já convertidas em números de ponto flutuante
+// ({g: 'line'|'points'|'circle'|..., attrs}) e opções da janela (xlim, ylim,
+// aspect, axes, ...). Não guarda handles FLINT.
+export class Graphic {
+  constructor(items, opts = {}) {
+    this.items = items;
+    this.opts = opts;
+  }
+  // g1 + g2: junta as primitivas; opções da esquerda têm prioridade.
+  concat(other) {
+    return new Graphic([...this.items, ...other.items], { ...other.opts, ...this.opts });
   }
   display() {
-    return { t: 'plot', ...this.data };
+    return { t: 'graphics', items: this.items, opts: this.opts };
   }
+}
+
+// Lista (possivelmente aninhada) só de gráficos vira um gráfico; senão null.
+export function asGraphic(v) {
+  if (v instanceof Graphic) return v;
+  if (!Array.isArray(v) || !v.length) return null;
+  let acc = new Graphic([]);
+  for (const x of v) {
+    const g = asGraphic(x);
+    if (!g) return null;
+    acc = acc.concat(g);
+  }
+  return acc;
 }
 
 // Widget de entrada: o valor corrente vem da UI.

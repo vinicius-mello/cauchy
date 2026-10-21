@@ -2,10 +2,10 @@
 // (enviadas do worker para a UI) e em texto simples.
 //
 // Estruturas: {t:'int'|'rat'|'ball'|'cplx'|'gf'|'poly'|'mat'|'list'|'tuple'|
-//   'factored'|'str'|'bool'|'fn'|'ring'|'unit'|'plot'|'widget'|'more', ...}
+//   'factored'|'str'|'bool'|'fn'|'ring'|'unit'|'graphics'|'widget'|'more', ...}
 
 import { Elem, Ring, ZZ, QQ, RR, CC, ZmodRing, FiniteField, PolyRing, MatSpace, Poly, flint, equal } from './rings.js';
-import { Tuple, Func, Factored, Plot, Widget } from './values.js';
+import { Tuple, Func, Factored, Graphic, Widget, asGraphic } from './values.js';
 
 const MAX_ITEMS = 500;
 const MAX_DIGITS = 5000;
@@ -20,6 +20,8 @@ export function display(v, opts = {}) {
     };
   }
   if (Array.isArray(v)) {
+    const g = asGraphic(v);
+    if (g) return g.display();
     const items = v.slice(0, MAX_ITEMS).map((x) => display(x, opts));
     return { t: 'list', items, more: Math.max(0, v.length - MAX_ITEMS) };
   }
@@ -32,7 +34,7 @@ export function display(v, opts = {}) {
   if (typeof v === 'number') return { t: 'int', s: String(v) };
   if (v instanceof Func) return { t: 'fn', name: v.name ?? null, arity: v.arity ?? null };
   if (v instanceof Ring) return { t: 'ring', s: v.name };
-  if (v instanceof Plot) return v.display();
+  if (v instanceof Graphic) return v.display();
   if (v instanceof Widget) return v.display();
   if (v === null || v === undefined) return { t: 'unit' };
   return { t: 'str', s: String(v) };
@@ -205,7 +207,7 @@ export function toText(d) {
     case 'bool': return d.v ? 'true' : 'false';
     case 'fn': return d.name ? `<função ${d.name}>` : '<função>';
     case 'ring': return d.s;
-    case 'plot': return '<gráfico>';
+    case 'graphics': return '<gráfico>';
     case 'widget': return toText(d.value);
     default: return `<${d.t}>`;
   }

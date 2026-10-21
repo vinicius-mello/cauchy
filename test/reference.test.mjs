@@ -71,6 +71,9 @@ const ERRORS = [
   'flint("nope")', 'flint("fmpz_add", 1)', 'x = gen(QQ[x]); y = gen(QQ[y]); x + y', 'reduce([], (a, b) -> a)',
   'sqrt(Zmod(7)(3))', 'inverse([1, 2; 2, 4])', 'with foo = 1: 2', '"abc', '1 $ 2', 'nextprime()', 'gen(ZZ)',
   'floor(i)', 'len(3)', 'QQ(1, 0)', 'Zmod(1)', 'max([])', '1..10 by 0', 'listplot([1], ylim = [2, 1])',
+  'circle(0, -1)', 'circle(0, 1, foo = 2)', 'circle(0, 1, color = "x")', 'point("a")', 'polygon([0, 1])', 'infline(1, 1)',
+  'arc(0, 1, 1, 0)', 'circle(0, 1) - 1', 'draw(3)', 'draw(point(0), zoom = 2)', 'point(0, opacity = 2)', 'point(0, dash = "x")',
+  'point(0, marker = "x")', 'draw(point(0), aspect = "x")', 'curve(t -> t, 1, 0)', 'rgb(2, 0, 0)', 'arc(0, 1, i, 2)',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

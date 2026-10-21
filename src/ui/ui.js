@@ -2,7 +2,7 @@
 // worker, persistência e painel de referência.
 
 import { render, ringName, esc } from './render.js';
-import { renderPlot } from './plot.js';
+import { renderGraphics } from './plot.js';
 import { highlight } from './highlight.js';
 import { EXAMPLES, pick } from './examples.js';
 import { t, setLang, getLang, detectLang, applyStatic, translateError, SYNTAX_CODE, SYNTAX_NOTES } from './i18n.js';
@@ -358,11 +358,9 @@ function showResult(c, res) {
 }
 
 function mountSlot(c, slot, d, res) {
-  if (d.t === 'plot') {
+  if (d.t === 'graphics') {
     const w = Math.max(300, Math.min(760, ($('#cells').clientWidth || 700) - 60));
-    const svg = renderPlot(d, w);
-    svg.style.width = `${w}px`;
-    slot.replaceWith(svg);
+    slot.replaceWith(renderGraphics(d, w));
     return;
   }
   if (d.t === 'widget') {
