@@ -70,7 +70,7 @@ const ERRORS = [
   'factor(0)', 'match 3 { 1 => 2 }', 'f(1) = 1; f(2)', '1 +', 'det([1, 2, 3])', 'zetazero(0)', 'isprime(1/2)',
   'flint("nope")', 'flint("fmpz_add", 1)', 'x = gen(QQ[x]); y = gen(QQ[y]); x + y', 'reduce([], (a, b) -> a)',
   'sqrt(Zmod(7)(3))', 'inverse([1, 2; 2, 4])', 'with foo = 1: 2', '"abc', '1 $ 2', 'nextprime()', 'gen(ZZ)',
-  'floor(i)', 'len(3)', 'QQ(1, 0)', 'Zmod(1)', 'max([])', '1..10 by 0',
+  'floor(i)', 'len(3)', 'QQ(1, 0)', 'Zmod(1)', 'max([])', '1..10 by 0', 'listplot([1], ylim = [2, 1])',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

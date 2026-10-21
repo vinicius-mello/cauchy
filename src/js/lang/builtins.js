@@ -1075,6 +1075,16 @@ export function makeGlobals() {
     if (typeof v === 'number') return v;
     return NaN;
   };
+  // Opções xlim/ylim: janela visível [lo, hi] de cada eixo.
+  const limits = (kw) => {
+    const lim = (name) => {
+      if (kw[name] === undefined) return null;
+      const v = iterable(kw[name]).map(toNum);
+      if (v.length !== 2 || !v.every(Number.isFinite) || !(v[1] > v[0])) fail(`${name} deve ser [lo, hi] com lo < hi`);
+      return v;
+    };
+    return { xlim: lim('xlim'), ylim: lim('ylim') };
+  };
   const sample = (f, a, b, n) => {
     const pts = [];
     const lo = toNum(a), hi = toNum(b);
@@ -1099,23 +1109,23 @@ export function makeGlobals() {
     const funcs = Array.isArray(fs) ? fs : [fs];
     const n = kw.points ? toInt(kw.points) : 400;
     const series = funcs.map((f, i) => ({ points: sample(fn(f), a, b, n), label: f.name ?? `f${funcs.length > 1 ? i + 1 : ''}` }));
-    return new Plot({ kind: 'line', series, title: kw.title ?? null, ylim: kw.ylim ? iterable(kw.ylim).map(toNum) : null });
-  }, 'plot(f, a, b) ou plot([f, g], a, b, points=400, ylim=[lo, hi])');
+    return new Plot({ kind: 'line', series, title: kw.title ?? null, ...limits(kw) });
+  }, 'plot(f, a, b) ou plot([f, g], a, b, points=400, xlim=[lo, hi], ylim=[lo, hi])');
   def('listplot', null, ([xs], kw) => {
     const items = list(xs);
     const points = items.map((p, i) => {
       if (p instanceof Tuple) return [toNum(p.items[0]), toNum(p.items[1])];
       return [i + 1, toNum(p)];
     });
-    return new Plot({ kind: kw.joined === true ? 'line' : 'scatter', series: [{ points, label: '' }], title: kw.title ?? null });
-  }, 'listplot(ys) ou listplot([(x, y), ...], joined=false)');
+    return new Plot({ kind: kw.joined === true ? 'line' : 'scatter', series: [{ points, label: '' }], title: kw.title ?? null, ...limits(kw) });
+  }, 'listplot(ys) ou listplot([(x, y), ...], joined=false, xlim=, ylim=)');
   def('complexplot', null, ([zs], kw) => {
     const points = list(zs).map((z) => {
       const c = CC.coerce(elem(z));
       return [RR.mid(CC.re(c)), RR.mid(CC.im(c))];
     });
-    return new Plot({ kind: 'scatter', series: [{ points, label: '' }], equal: true, title: kw.title ?? null });
-  }, 'complexplot(zs): pontos no plano complexo');
+    return new Plot({ kind: 'scatter', series: [{ points, label: '' }], equal: true, title: kw.title ?? null, ...limits(kw) });
+  }, 'complexplot(zs, xlim=, ylim=): pontos no plano complexo');
 
   // --------------------------------------------------------- widgets
   const widget = (kind, spec, defVal, parse) => {

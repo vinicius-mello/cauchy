@@ -292,6 +292,7 @@ const RULES = [
   [/^valor não iterável$/, 'value is not iterable'],
   [/^valuation\(0, p\) é infinito$/, 'valuation(0, p) is infinite'],
   [/^Zmod\(n\) requer n > 1$/, 'Zmod(n) requires n > 1'],
+  [/^(xlim|ylim) deve ser \[lo, hi\] com lo < hi$/, '$1 must be [lo, hi] with lo < hi'],
   [/^função FLINT desconhecida: (.+)$/, 'unknown FLINT function: $1'],
   [/^tipo FLINT desconhecido: (.+)$/, 'unknown FLINT type: $1'],
   [/^(.+) requer um anel Zmod\(n\)\/GF\(q\) como argumento$/, '$1 requires a Zmod(n)/GF(q) ring as an argument'],

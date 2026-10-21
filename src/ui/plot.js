@@ -55,17 +55,18 @@ export function renderPlot(d, width = 640) {
   const W = width - m.l - m.r, H = height - m.t - m.b;
   const all = d.series.flatMap((s) => s.points);
   const xs = all.map((p) => p[0]).filter(Number.isFinite);
-  let [x0, x1] = xs.length ? [Math.min(...xs), Math.max(...xs)] : [0, 1];
+  let [x0, x1] = d.xlim ?? (xs.length ? [Math.min(...xs), Math.max(...xs)] : [0, 1]);
   if (x1 - x0 < 1e-12) { x0 -= 1; x1 += 1; }
   let [y0, y1] = d.ylim ?? yRange(all.map((p) => p[1]));
   if (d.equal) {
-    // Mesma escala nos dois eixos (plano complexo).
+    // Mesma escala nos dois eixos (plano complexo). Com limites dados, a
+    // janela pedida é mantida e só o outro eixo é ampliado (sem margem).
     const sx = (x1 - x0) / W, sy = (y1 - y0) / H;
-    const s = Math.max(sx, sy) * 1.1;
+    const s = Math.max(sx, sy) * (d.xlim || d.ylim ? 1 : 1.1);
     const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     x0 = cx - (s * W) / 2; x1 = cx + (s * W) / 2;
     y0 = cy - (s * H) / 2; y1 = cy + (s * H) / 2;
-  } else if (d.kind === 'scatter') {
+  } else if (d.kind === 'scatter' && !d.xlim) {
     const pad = (x1 - x0) * 0.04;
     x0 -= pad; x1 += pad;
   }

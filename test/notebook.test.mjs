@@ -85,3 +85,20 @@ test('gráfico produz séries de pontos', () => {
   assert.equal(r.display.series[0].points.length, 11);
   assert.ok(Math.abs(r.display.series[0].points[5][1] - Math.sin(1.5)) < 1e-12);
 });
+
+test('xlim/ylim fixam a janela dos gráficos', () => {
+  const nb = new Notebook();
+  const res = nb.update([
+    { id: 'a', src: 'plot(sin, 0, 10, xlim = [2, 4], ylim = [-1/2, 1/2])' },
+    { id: 'b', src: 'listplot([1, 4, 9], ylim = [0, 5])' },
+    { id: 'c', src: 'complexplot([i, 2 + i], xlim = [-1, 3], ylim = [-1, 1.5])' },
+    { id: 'd', src: 'listplot([1, 2], xlim = [3, 1])' },
+  ]);
+  const [a, b, c, d] = res;
+  assert.deepEqual([a.display.xlim, a.display.ylim], [[2, 4], [-0.5, 0.5]]);
+  assert.equal(b.display.xlim, null);
+  assert.deepEqual(b.display.ylim, [0, 5]);
+  assert.deepEqual([c.display.xlim, c.display.ylim, c.display.equal], [[-1, 3], [-1, 1.5], true]);
+  assert.equal(d.status, 'error');
+  assert.match(d.error.message, /xlim deve ser \[lo, hi\]/);
+});
