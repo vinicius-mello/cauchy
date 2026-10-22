@@ -2,9 +2,9 @@
 // (enviadas do worker para a UI) e em texto simples.
 //
 // Estruturas: {t:'int'|'rat'|'ball'|'cplx'|'gf'|'poly'|'mat'|'list'|'tuple'|
-//   'factored'|'str'|'bool'|'fn'|'ring'|'unit'|'graphics'|'widget'|'more', ...}
+//   'mpoly'|'factored'|'str'|'bool'|'fn'|'ring'|'unit'|'graphics'|'widget'|'more', ...}
 
-import { Elem, Ring, ZZ, QQ, RR, CC, ZmodRing, FiniteField, PolyRing, MatSpace, Poly, flint, equal } from './rings.js';
+import { Elem, Ring, ZZ, QQ, RR, CC, ZmodRing, FiniteField, PolyRing, MPolyRing, MatSpace, Poly, flint, equal } from './rings.js';
 import { Tuple, Func, Factored, Graphic, Widget, asGraphic } from './values.js';
 
 const MAX_ITEMS = 500;
@@ -113,6 +113,15 @@ function showElem(x, opts) {
     }
     return { t: 'poly', v: R.v, terms, more: n > MAX_ITEMS };
   }
+  if (R instanceof MPolyRing) {
+    // Monômios como listas [[variável, expoente], ...] na ordem do anel.
+    const n = R.len(x);
+    const terms = R.terms(x).slice(0, MAX_ITEMS).map(({ c, e }) => ({
+      c: showElem(c, opts),
+      m: e.flatMap((k, i) => (k ? [[R.vars[i], k]] : [])),
+    }));
+    return { t: 'mpoly', terms, more: n > MAX_ITEMS };
+  }
   if (R instanceof MatSpace) {
     const r = R.nrows(x), c = R.ncols(x);
     const rows = [];
@@ -150,6 +159,7 @@ export function ballText(b) {
 
 function isCompound(d) {
   if (d.t === 'poly') return d.terms.length > 1 || (d.terms.length === 1 && toText(d.terms[0].c) !== '1' && d.terms[0].e > 0);
+  if (d.t === 'mpoly') return d.terms.length > 1 || (d.terms.length === 1 && toText(d.terms[0].c) !== '1' && d.terms[0].m.length > 0);
   if (d.t === 'gf') return isCompound(d.poly);
   return (d.t === 'cplx' && !d.imZero && !(d.re.mid === '0' && !d.re.rad)) || (d.t === 'ball' && !!d.rad) ||
     (d.t === 'rat' && false);
@@ -174,17 +184,18 @@ export function toText(d) {
       return `${ballText(d.re)} ${op} ${imS}·i`;
     }
     case 'gf': return d.s;
-    case 'poly': {
+    case 'poly': case 'mpoly': {
       if (!d.terms.length) return '0';
       let out = '';
-      d.terms.forEach(({ c, e }, k) => {
+      d.terms.forEach(({ c, e, m }, k) => {
         let cs = coeffText(c);
         let neg = false;
         if (cs.startsWith('-') && !isCompound(c)) {
           neg = true;
           cs = cs.slice(1);
         }
-        const mon = e === 0 ? '' : e === 1 ? d.v : `${d.v}^${e}`;
+        const mon = m ? m.map(([v, j]) => (j === 1 ? v : `${v}^${j}`)).join('*')
+          : e === 0 ? '' : e === 1 ? d.v : `${d.v}^${e}`;
         let term;
         if (!mon) term = cs;
         else if (cs === '1') term = mon;
@@ -192,7 +203,7 @@ export function toText(d) {
         if (k === 0) out += (neg ? '-' : '') + term;
         else out += (neg ? ' - ' : ' + ') + term;
       });
-      return out;
+      return d.more ? `${out} + …` : out;
     }
     case 'mat': return '[' + d.rows.map((r) => r.map(toText).join(', ')).join('; ') + ']';
     case 'list': return '[' + d.items.map(toText).join(', ') + (d.more ? `, … (+${d.more})` : '') + ']';

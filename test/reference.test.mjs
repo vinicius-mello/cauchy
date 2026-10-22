@@ -49,6 +49,8 @@ test('funções FLINT citadas existem na FLINT exposta ou são conhecidas', () =
     'arb_hypgeom_bessel_k', 'acb_hypgeom_bessel_k', 'acb_get_real', 'acb_get_imag', 'arith_bell_number',
     'arith_stirling_number_1', 'arith_stirling_number_2', 'arith_euler_number', 'bernoulli_fmpq_ui', 'arb_fib_fmpz',
     'fmpz_mod_mat_charpoly', 'acb_set_round', 'arb_set_round', 'fmpz_divexact',
+    'fmpz_mpoly_ctx_init', 'fmpz_mpoly_gen', 'fmpz_mpoly_get_term_coeff_fmpz', 'fmpz_mpoly_get_term_exp_ui',
+    'fmpz_mpoly_factor', 'fmpq_mpoly_factor', 'fmpq_mpoly_evaluate_all_fmpq', 'fmpq_mpoly_divrem_ideal',
   ]);
   const unknown = [];
   for (const e of REF.values()) for (const f of e.flint) if (!cfuncs.has(f) && !extra.has(f)) unknown.push(`${e.name}:${f}`);
@@ -68,7 +70,7 @@ const ERRORS = [
   '1/0', 'foo(3)', '[1, 2][5]', 'if 1 then 2 else 3', 'GF(6)', '[1, 2; 3]', 'f(n) = f(n + 1); f(1)',
   '[1, 2; 3, 4] * [1, 2, 3;]', 'exp(1) == e', 'sin("a")', '"a" - 1', 'Zmod(12)(4)^-1', 'x = gen(QQ[x]); (x^2 + 1) / (x - 1)',
   'factor(0)', 'match 3 { 1 => 2 }', 'f(1) = 1; f(2)', '1 +', 'det([1, 2, 3])', 'zetazero(0)', 'isprime(1/2)',
-  'flint("nope")', 'flint("fmpz_add", 1)', 'x = gen(QQ[x]); y = gen(QQ[y]); x + y', 'reduce([], (a, b) -> a)',
+  'flint("nope")', 'flint("fmpz_add", 1)', 'x = gen(RR[x]); y = gen(RR[y]); x + y', 'reduce([], (a, b) -> a)',
   'sqrt(Zmod(7)(3))', 'inverse([1, 2; 2, 4])', 'with foo = 1: 2', '"abc', '1 $ 2', 'nextprime()', 'gen(ZZ)',
   'floor(i)', 'len(3)', 'QQ(1, 0)', 'Zmod(1)', 'max([])', '1..10 by 0', 'listplot([1], ylim = [2, 1])',
   'circle(0, -1)', 'circle(0, 1, foo = 2)', 'circle(0, 1, color = "x")', 'point("a")', 'polygon([0, 1])', 'infline(1, 1)',
@@ -76,6 +78,15 @@ const ERRORS = [
   'point(0, marker = "x")', 'draw(point(0), aspect = "x")', 'curve(t -> t, 1, 0)', 'rgb(2, 0, 0)', 'arc(0, 1, i, 2)',
   'scale(point(0), 0)', 'transform(point(0), [1, 2, 3; 4, 5, 6])', 'transform(point(0), [1, 2; 2, 4])', 'transform(ray(0, 1), exp)',
   'translate(3, 1)', 'rotate(point(0), "a")',
+  'GF(7)[x, y]', 'QQ[x, x]', 'QQ[x, y, order = "abc"]', 'QQ[x, y, foo = 1]', 'QQ[1, 2]', '[1, 2][1, order = 2]',
+  '(x, y) = gens(Zmod(6)[x, y]); factor(x^2 - y^2)', '(x, y) = gens(QQ[x, y]); (x + y)(1)', '(x, y) = gens(QQ[x, y]); (x + y)[1]',
+  'gen(QQ[x, y])', 'gen(QQ[x, y], 3)', 'gen(QQ[x, y], "z")', '(x, y) = gens(QQ[x, y]); roots(x*y - 1)',
+  '(x, y) = gens(QQ[x, y]); diff(x*y, 2)', '(x, y) = gens(QQ[x, y]); diff(x*y)', '(x, y) = gens(QQ[x, y]); deg(x, x + 1)',
+  '(x, y) = gens(QQ[x, y]); coeff(x*y, 2*x)', '(x, y) = gens(QQ[x, y]); coeff(x*y, 1)', '(x, y) = gens(QQ[x, y]); lt(0*x)',
+  '(x, y) = gens(QQ[x, y]); resultant(x, y)', '(x, y) = gens(QQ[x, y]); disc(x*y, "z")', '(x, y) = gens(QQ[x, y]); (x^2 + 1)/(x*y + 1)',
+  '(x, y) = gens(QQ[x, y]); subs(x, y)', 'x = gen(QQ[x]); disc(x^2, "y")', 'divrem(3, [1])', 'vars(1..3)',
+  '(x, y) = gens(QQ[x, y]); flint("fmpz_mpoly_total_degree", x)', 'flint("fmpq_mpoly_total_degree", 1)',
+  '(x, y) = gens(QQ[x, y]); (x + y)("a", 1)', '(x, y) = gens(QQ[x, y]); x^-1', 'gens(3)',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

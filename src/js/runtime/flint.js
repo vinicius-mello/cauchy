@@ -12,7 +12,7 @@ export class FlintError extends Error {
 const HANDLE_ARGS = new Set([
   'fmpz', 'zmod', 'fmpq', 'arb', 'acb', 'fmpz_poly', 'fmpq_poly', 'arb_poly',
   'acb_poly', 'zmod_poly', 'fq', 'fq_poly', 'fmpz_mat', 'fmpq_mat', 'arb_mat',
-  'acb_mat', 'zmod_mat', 'fq_mat',
+  'acb_mat', 'zmod_mat', 'fq_mat', 'fmpz_mpoly', 'fmpq_mpoly', 'zmod_mpoly',
 ]);
 
 export class Flint {
@@ -54,7 +54,7 @@ export class Flint {
     let k = 0;
     for (const t of types) {
       if (t === 'prec') call.push(this.prec);
-      else if (t === 'modctx' || t === 'fqctx') call.push(ctx);
+      else if (t === 'modctx' || t === 'fqctx' || t === 'mctx') call.push(ctx);
       else if (t === 'str') {
         const p = this.M.stringToNewUTF8(String(args[k++]));
         temps.push(p);

@@ -6,7 +6,7 @@
 // retorno: tipo de handle (fmpz, arb, fmpz_poly, fmpz_mat@0x1, ...), int, si, ui, d
 //   tipos de matriz levam dimensões: @0 (como arg0), @0x1 (linhas de arg0,
 //   colunas de arg1), @0T (transposta de arg0), @0r (n×1 com n = linhas de arg0)
-// argumentos: tipos de handle, prec, si, ui, str, modctx, fqctx
+// argumentos: tipos de handle, prec, si, ui, str, modctx, fqctx, mctx (contexto mpoly)
 // "!" indica que a função C devolve int e zero significa falha.
 
 import { readFileSync, writeFileSync } from 'node:fs';
@@ -18,11 +18,12 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HANDLE = new Set([
   'fmpz', 'zmod', 'fmpq', 'arb', 'acb', 'fmpz_poly', 'fmpq_poly', 'arb_poly',
   'acb_poly', 'zmod_poly', 'fq', 'fq_poly', 'fmpz_mat', 'fmpq_mat', 'arb_mat',
-  'acb_mat', 'zmod_mat', 'fq_mat',
+  'acb_mat', 'zmod_mat', 'fq_mat', 'fmpz_mpoly', 'fmpq_mpoly', 'zmod_mpoly',
 ]);
 const MAT = new Set(['fmpz_mat', 'fmpq_mat', 'arb_mat', 'acb_mat', 'zmod_mat', 'fq_mat']);
+const CTX = new Set(['modctx', 'fqctx', 'mctx']);
 const SCALAR_RET = { int: 'int', si: 'slong', ui: 'ulong', d: 'double' };
-const SCALAR_ARG = { prec: 'slong', si: 'slong', ui: 'ulong', str: 'const char *', modctx: 'const void *', fqctx: 'const void *', d: 'double' };
+const SCALAR_ARG = { prec: 'slong', si: 'slong', ui: 'ulong', str: 'const char *', modctx: 'const void *', fqctx: 'const void *', mctx: 'const void *', d: 'double' };
 
 function parseLine(line, lineno) {
   const [main, check] = line.split('!').map((s) => s?.trim());
@@ -65,12 +66,12 @@ function dimsExpr(dims, args, retType) {
 
 function genC(d) {
   const params = d.args.map((a, k) => {
-    if (a === 'modctx' || a === 'fqctx') return 'const void *ctx';
+    if (CTX.has(a)) return 'const void *ctx';
     if (a === 'prec') return 'slong prec';
     return `${SCALAR_ARG[a] ?? 'void *'} a${k}`;
   });
-  const hasCtx = d.args.some((a) => a === 'modctx' || a === 'fqctx');
-  const callArgs = d.args.map((a, k) => (a === 'modctx' || a === 'fqctx' ? 'ctx' : a === 'prec' ? 'prec' : `a${k}`));
+  const hasCtx = d.args.some((a) => CTX.has(a));
+  const callArgs = d.args.map((a, k) => (CTX.has(a) ? 'ctx' : a === 'prec' ? 'prec' : `a${k}`));
   const sigParams = params.length ? params.join(', ') : 'void';
   const ctxDecl = hasCtx ? '' : '    const void *ctx = NULL; (void) ctx;\n';
   const lines = [];

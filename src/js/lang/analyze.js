@@ -85,9 +85,10 @@ export function freeVars(stmts) {
         return;
       case 'index':
         walk(n.obj);
-        // R[x]: um nome isolado como índice pode ser só o nome da variável do polinômio.
-        if (n.idx.length === 1 && n.idx[0].k === 'var') {
-          if (!isBound(n.idx[0].name)) weak.add(n.idx[0].name);
+        (n.kwargs ?? []).forEach((kw) => walk(kw.expr));
+        // R[x] e R[x, y]: nomes isolados como índices podem ser só nomes de variáveis.
+        if (n.idx.length && n.idx.every((i) => i.k === 'var')) {
+          for (const i of n.idx) if (!isBound(i.name)) weak.add(i.name);
           return;
         }
         n.idx.forEach(walk);

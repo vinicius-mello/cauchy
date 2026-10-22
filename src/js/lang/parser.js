@@ -294,11 +294,22 @@ class Parser {
       } else if (this.is('[')) {
         this.next();
         const idx = [];
+        const kwargs = [];
         if (!this.is(']')) {
-          do idx.push(this.expr()); while (this.accept(','));
+          do {
+            // R[x, y, order = "lex"]: opções nomeadas no fim.
+            if (this.tok.t === 'id' && this.peek().t === 'op' && this.peek().v === '=') {
+              const name = this.next().v;
+              this.next();
+              kwargs.push({ name, expr: this.expr() });
+            } else {
+              if (kwargs.length) this.error('índice após opção nomeada');
+              idx.push(this.expr());
+            }
+          } while (this.accept(','));
         }
         const end = this.expect(']').end;
-        e = { k: 'index', obj: e, idx, pos: e.pos, end };
+        e = { k: 'index', obj: e, idx, kwargs, pos: e.pos, end };
       } else if (this.is('!')) {
         const end = this.next().end;
         e = { k: 'call', fn: { k: 'var', name: 'factorial', pos: e.pos, end }, args: [e], kwargs: [], pos: e.pos, end };

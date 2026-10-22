@@ -15,7 +15,7 @@ node "$ROOT/tools/gen-bindings.mjs"
 
 emcc $OPT -std=c11 -Wall -Wno-unused-function -Werror=implicit-function-declaration \
   -Werror=incompatible-pointer-types -I"$PREFIX/include" \
-  "$ROOT/src/c/bridge.c" "$ROOT/src/c/bindings.gen.c" \
+  "$ROOT/src/c/bridge.c" "$ROOT/src/c/mpoly.c" "$ROOT/src/c/bindings.gen.c" \
   "$PREFIX/lib/libflint.a" "$PREFIX/lib/libmpfr.a" "$PREFIX/lib/libgmp.a" \
   -sMODULARIZE=1 -sEXPORT_ES6=1 -sEXPORT_NAME=createCauchy \
   -sENVIRONMENT=web,worker,node ${EXTRA:-} \

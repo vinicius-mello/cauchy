@@ -401,6 +401,63 @@ fq_poly_is_irreducible     int            fq_poly fqctx         = fq_default_pol
 fq_poly_make_monic         fq_poly        fq_poly fqctx         = fq_default_poly_make_monic
 fq_poly_set                fq_poly        fq_poly fqctx         = fq_default_poly_set
 
+# ---------------------------------------------------------------- várias variáveis (mpoly)
+# Contextos e acesso a termos em mpoly.c; o argumento mctx é o contexto do anel.
+fmpz_mpoly_add             fmpz_mpoly     fmpz_mpoly fmpz_mpoly mctx
+fmpz_mpoly_sub             fmpz_mpoly     fmpz_mpoly fmpz_mpoly mctx
+fmpz_mpoly_mul             fmpz_mpoly     fmpz_mpoly fmpz_mpoly mctx
+fmpz_mpoly_neg             fmpz_mpoly     fmpz_mpoly mctx
+fmpz_mpoly_pow             fmpz_mpoly     fmpz_mpoly ui mctx   = fmpz_mpoly_pow_ui ! expoente grande demais
+fmpz_mpoly_scalar_mul      fmpz_mpoly     fmpz_mpoly fmpz mctx = fmpz_mpoly_scalar_mul_fmpz
+fmpz_mpoly_divides         fmpz_mpoly     fmpz_mpoly fmpz_mpoly mctx ! divisão não exata
+fmpz_mpoly_equal           int            fmpz_mpoly fmpz_mpoly mctx
+fmpz_mpoly_is_zero         int            fmpz_mpoly mctx
+fmpz_mpoly_total_degree    si             fmpz_mpoly mctx      = fmpz_mpoly_total_degree_si
+fmpz_mpoly_degree          si             fmpz_mpoly si mctx   = fmpz_mpoly_degree_si
+fmpz_mpoly_derivative      fmpz_mpoly     fmpz_mpoly si mctx
+fmpz_mpoly_evaluate_one    fmpz_mpoly     fmpz_mpoly si fmpz mctx = fmpz_mpoly_evaluate_one_fmpz ! avaliação grande demais
+fmpz_mpoly_gcd             fmpz_mpoly     fmpz_mpoly fmpz_mpoly mctx ! gcd falhou
+fmpz_mpoly_resultant       fmpz_mpoly     fmpz_mpoly fmpz_mpoly si mctx ! resultante falhou
+fmpz_mpoly_discriminant    fmpz_mpoly     fmpz_mpoly si mctx   ! discriminante falhou
+fmpz_mpoly_set             fmpz_mpoly     fmpz_mpoly mctx
+fmpq_mpoly_add             fmpq_mpoly     fmpq_mpoly fmpq_mpoly mctx
+fmpq_mpoly_sub             fmpq_mpoly     fmpq_mpoly fmpq_mpoly mctx
+fmpq_mpoly_mul             fmpq_mpoly     fmpq_mpoly fmpq_mpoly mctx
+fmpq_mpoly_neg             fmpq_mpoly     fmpq_mpoly mctx
+fmpq_mpoly_pow             fmpq_mpoly     fmpq_mpoly ui mctx   = fmpq_mpoly_pow_ui ! expoente grande demais
+fmpq_mpoly_scalar_mul      fmpq_mpoly     fmpq_mpoly fmpq mctx = fmpq_mpoly_scalar_mul_fmpq
+fmpq_mpoly_divides         fmpq_mpoly     fmpq_mpoly fmpq_mpoly mctx ! divisão não exata
+fmpq_mpoly_equal           int            fmpq_mpoly fmpq_mpoly mctx
+fmpq_mpoly_is_zero         int            fmpq_mpoly mctx
+fmpq_mpoly_total_degree    si             fmpq_mpoly mctx      = fmpq_mpoly_total_degree_si
+fmpq_mpoly_degree          si             fmpq_mpoly si mctx   = fmpq_mpoly_degree_si
+fmpq_mpoly_derivative      fmpq_mpoly     fmpq_mpoly si mctx
+fmpq_mpoly_evaluate_one    fmpq_mpoly     fmpq_mpoly si fmpq mctx = fmpq_mpoly_evaluate_one_fmpq ! avaliação grande demais
+fmpq_mpoly_gcd             fmpq_mpoly     fmpq_mpoly fmpq_mpoly mctx ! gcd falhou
+fmpq_mpoly_resultant       fmpq_mpoly     fmpq_mpoly fmpq_mpoly si mctx ! resultante falhou
+fmpq_mpoly_discriminant    fmpq_mpoly     fmpq_mpoly si mctx   ! discriminante falhou
+fmpq_mpoly_set             fmpq_mpoly     fmpq_mpoly mctx
+fmpq_mpoly_integral        fmpq_mpoly     fmpq_mpoly si mctx
+fmpq_mpoly_make_monic      fmpq_mpoly     fmpq_mpoly mctx
+zmod_mpoly_add             zmod_mpoly     zmod_mpoly zmod_mpoly mctx = fmpz_mod_mpoly_add
+zmod_mpoly_sub             zmod_mpoly     zmod_mpoly zmod_mpoly mctx = fmpz_mod_mpoly_sub
+zmod_mpoly_mul             zmod_mpoly     zmod_mpoly zmod_mpoly mctx = fmpz_mod_mpoly_mul
+zmod_mpoly_neg             zmod_mpoly     zmod_mpoly mctx      = fmpz_mod_mpoly_neg
+zmod_mpoly_pow             zmod_mpoly     zmod_mpoly ui mctx   = fmpz_mod_mpoly_pow_ui ! expoente grande demais
+zmod_mpoly_scalar_mul      zmod_mpoly     zmod_mpoly zmod mctx = fmpz_mod_mpoly_scalar_mul_fmpz
+zmod_mpoly_divides         zmod_mpoly     zmod_mpoly zmod_mpoly mctx = fmpz_mod_mpoly_divides ! divisão não exata
+zmod_mpoly_equal           int            zmod_mpoly zmod_mpoly mctx = fmpz_mod_mpoly_equal
+zmod_mpoly_is_zero         int            zmod_mpoly mctx      = fmpz_mod_mpoly_is_zero
+zmod_mpoly_total_degree    si             zmod_mpoly mctx      = fmpz_mod_mpoly_total_degree_si
+zmod_mpoly_degree          si             zmod_mpoly si mctx   = fmpz_mod_mpoly_degree_si
+zmod_mpoly_derivative      zmod_mpoly     zmod_mpoly si mctx   = fmpz_mod_mpoly_derivative
+zmod_mpoly_evaluate_one    zmod_mpoly     zmod_mpoly si zmod mctx = fmpz_mod_mpoly_evaluate_one_fmpz
+zmod_mpoly_gcd             zmod_mpoly     zmod_mpoly zmod_mpoly mctx = fmpz_mod_mpoly_gcd ! gcd falhou
+zmod_mpoly_resultant       zmod_mpoly     zmod_mpoly zmod_mpoly si mctx = fmpz_mod_mpoly_resultant ! resultante falhou
+zmod_mpoly_discriminant    zmod_mpoly     zmod_mpoly si mctx   = fmpz_mod_mpoly_discriminant ! discriminante falhou
+zmod_mpoly_set             zmod_mpoly     zmod_mpoly mctx      = fmpz_mod_mpoly_set
+zmod_mpoly_make_monic      zmod_mpoly     zmod_mpoly mctx      = fmpz_mod_mpoly_make_monic
+
 # ---------------------------------------------------------------- matrizes
 fmpz_mat_add               fmpz_mat@0     fmpz_mat fmpz_mat
 fmpz_mat_sub               fmpz_mat@0     fmpz_mat fmpz_mat

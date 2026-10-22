@@ -69,6 +69,23 @@ test('memória: handles vivos voltam ao nível base', () => {
   assert.equal(F.live, base);
 });
 
+test('memória: polinômios em várias variáveis não deixam handles vivos', () => {
+  const nb = new Notebook();
+  const base = F.live;
+  nb.update([
+    { id: 'a', src: '(x, y, z) = gens(QQ[x, y, z])' },
+    { id: 'b', src: 'p = (x + y + z)^6 - 1' },
+    { id: 'c', src: 'factor(p), gcd(p, p*x), subs(p, x = y^2), p(1, 2, RR(3)), divrem(p, [x*y - 1, z^2])' },
+    { id: 'd', src: 'r = resultant(x^2 + y^2 - 1, x - y, y); roots(r), terms(r), diff(p, z, 2)' },
+  ]);
+  const held = F.live - base;
+  assert.ok(held < 60, `vivos: ${held}`);
+  for (let i = 2; i < 6; i++) nb.update([{ id: 'b', src: `p = (x + y + z)^${i} - 1` }]);
+  assert.ok(F.live - base < 60, `vivos após reavaliações: ${F.live - base}`);
+  nb.update(['a', 'b', 'c', 'd'].map((id) => ({ id, src: null })));
+  assert.equal(F.live, base);
+});
+
 test('widgets: valor vem do estado da célula', () => {
   const nb = new Notebook();
   let res = nb.update([{ id: 'k', src: 'k = slider(1, 10)' }, { id: 'sq', src: 'k^2' }]);

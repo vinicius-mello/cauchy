@@ -38,6 +38,26 @@ export const EXAMPLES = [
     ],
   },
   {
+    title: { pt: 'Várias variáveis', en: 'Several variables' },
+    cells: [
+      '(x, y, z) = gens(QQ[x, y, z])',
+      { pt: '# Fatoração e mdc em várias variáveis\nfactor(x^6 - y^6)', en: '# Factorization and gcd in several variables\nfactor(x^6 - y^6)' },
+      'gcd(x^3*y - x*y^3, x^2*y + 2x*y^2 + y^3)',
+      { pt: '# Eliminação: o círculo encontra y = x³ onde a resultante se anula\nr = resultant(x^2 + y^2 - 1, y - x^3, y)', en: '# Elimination: the circle meets y = x³ where the resultant vanishes\nr = resultant(x^2 + y^2 - 1, y - x^3, y)' },
+      'xs = realroots(r)',
+      'draw([circle(0, 1), curve(t -> t + i*t^3, -1.2, 1.2), points([a + i*a^3 | a <- xs], size = 6)])',
+      { pt: '# Discriminante da cúbica x³ + y·x + z\ndisc(x^3 + y*x + z, x)', en: '# Discriminant of the cubic x³ + y·x + z\ndisc(x^3 + y*x + z, x)' },
+      { pt: '# Derivadas parciais, substituição e avaliação\nf = x^2*y + y^3*z - z', en: '# Partial derivatives, substitution and evaluation\nf = x^2*y + y^3*z - z' },
+      '(diff(f, x), diff(f, y), diff(f, z))',
+      'subs(f, x = 1, y = z^2), f(1, 2, 1/3)',
+      { pt: '# Divisão multivariada na ordem do anel (degrevlex)\ndivrem(x^2*y + x*y^2 + y^2, [x*y - 1, y^2 - 1])', en: '# Multivariate division in the ring order (degrevlex)\ndivrem(x^2*y + x*y^2 + y^2, [x*y - 1, y^2 - 1])' },
+      { pt: '# Em ℤ/5ℤ, (u + v)⁵ = u⁵ + v⁵\n(u, v) = gens(Zmod(5)[u, v])', en: '# In ℤ/5ℤ, (u + v)⁵ = u⁵ + v⁵\n(u, v) = gens(Zmod(5)[u, v])' },
+      'factor(u^5 + v^5), factor(u^4 - v^4)',
+      'k = slider(1, 8)',
+      'terms((x + y + z)^k) |> len',
+    ],
+  },
+  {
     title: { pt: 'Funções especiais', en: 'Special functions' },
     cells: [
       'gamma(1/3)',

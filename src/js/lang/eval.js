@@ -2,7 +2,7 @@
 
 import { CauchyError } from './lexer.js';
 import {
-  Elem, Ring, ZZ, QQ, RR, PolyRing, MatSpace, Poly, Mat, flint,
+  Elem, Ring, ZZ, QQ, RR, PolyRing, MPolyRing, MatSpace, Poly, MPoly, Mat, flint,
   add, sub, mul, div, neg, pow, equal, compare, floorDiv, mod, commonRing, coerce,
 } from '../runtime/rings.js';
 import { Tuple, Func, UNIT, Widget, Graphic, asGraphic } from '../runtime/values.js';
@@ -238,11 +238,18 @@ export function matrixFromRows(rows) {
 
 function evalIndex(node, env) {
   const obj = evaluate(node.obj, env);
-  // R[x]: anel de polinômios; o índice é um nome, não um valor.
+  // R[x] ou R[x, y, ...]: anel de polinômios; os índices são nomes, não valores.
   if (obj instanceof Ring) {
-    if (node.idx.length !== 1 || node.idx[0].k !== 'var') fail('use R[x] com um nome de variável');
-    return Poly(obj, node.idx[0].name);
+    if (!node.idx.length || node.idx.some((i) => i.k !== 'var')) fail('use R[x] ou R[x, y, ...] com nomes de variáveis');
+    let order = 'degrevlex';
+    for (const kw of node.kwargs ?? []) {
+      if (kw.name !== 'order') fail(`opção desconhecida em R[...]: ${kw.name}`);
+      order = evaluate(kw.expr, env);
+      if (typeof order !== 'string') fail('order deve ser "lex", "deglex" ou "degrevlex"');
+    }
+    return MPoly(obj, node.idx.map((i) => i.name), order);
   }
+  if (node.kwargs?.length) fail('opções nomeadas só valem em R[x, ...]');
   const idx = node.idx.map((i) => evaluate(i, env));
   return index(obj, idx);
 }
@@ -271,6 +278,7 @@ export function index(obj, idx) {
       return R.fromRows([R.rows(obj)[i]]);
     }
   }
+  if (obj instanceof Elem && obj.ring instanceof MPolyRing) fail('use coeff(p, monômio) para coeficientes de polinômios em várias variáveis');
   if (obj instanceof Elem && obj.ring instanceof PolyRing) {
     // p[i] = coeficiente de x^i
     const i = toInt(idx[0], 'índice');
@@ -420,6 +428,11 @@ export function callValue(fn, args, kwargs = {}) {
   if (fn instanceof Elem && fn.ring instanceof PolyRing) {
     if (args.length !== 1) fail('avaliação de polinômio espera 1 argumento');
     return evalPoly(fn, args[0]);
+  }
+  if (fn instanceof Elem && fn.ring instanceof MPolyRing) {
+    const n = fn.ring.nvars;
+    if (args.length !== n) fail(`polinômio em ${n} variáveis (${fn.ring.vars.join(', ')}) espera ${n} argumentos, recebeu ${args.length}`);
+    return evalPoly(fn, args);
   }
   if (Array.isArray(fn) || fn instanceof Elem && fn.ring instanceof MatSpace) return index(fn, args);
   fail(`${typeName(fn)} não é uma função`);

@@ -2,9 +2,9 @@
 // polinômios, matrizes, corpos finitos, listas, gráficos e widgets.
 
 import {
-  Elem, Ring, ZZ, QQ, RR, CC, ZmodRing, FiniteField, PolyRing, MatSpace,
-  Zmod, GF, Poly, Mat, flint, commonRing, coerce, isScalarRing, finiteOr,
-  add, sub, mul, div, neg, pow, compare, equal, divrem, inv, matInv, floor, ceil, sign, isZero,
+  Elem, Ring, ZZ, QQ, RR, CC, ZmodRing, FiniteField, PolyRing, MPolyRing, MatSpace,
+  Zmod, GF, Poly, MPoly, Mat, flint, commonRing, coerce, isScalarRing, finiteOr,
+  add, sub, mul, div, neg, pow, compare, equal, divrem, mdivrem, inv, matInv, floor, ceil, sign, isZero,
 } from '../runtime/rings.js';
 import { Tuple, Func, Factored, Graphic, Widget, UNIT, asGraphic } from '../runtime/values.js';
 import { fail } from '../runtime/errors.js';
@@ -96,21 +96,36 @@ export function makeGlobals() {
     if (!(R instanceof Ring)) fail('Mat(R) espera um anel');
     return Mat(R);
   }, 'Mat(R): espaço de matrizes sobre R');
-  def('gen', 1, ([R]) => {
+  def('gen', null, ([R, k]) => {
+    if (R instanceof MPolyRing) {
+      if (k === undefined) fail(`${R} tem ${R.nvars} variáveis: use gens(R) ou gen(R, k)`);
+      if (typeof k === 'string') {
+        if (R.index(k) < 0) fail(`${k} não é variável de ${R}`);
+        return R.gen(R.index(k));
+      }
+      const i = toInt(k, 'k');
+      if (i < 1 || i > R.nvars) fail(`gen(R, k) requer 1 ≤ k ≤ ${R.nvars}`);
+      return R.gen(i - 1);
+    }
     if (R instanceof PolyRing) return R.gen();
     if (R instanceof FiniteField) return R.gen();
     fail('gen espera um anel de polinômios ou corpo finito');
-  }, 'gen(R): gerador de R[x] ou de GF(q)');
+  }, 'gen(R): gerador de R[x] ou de GF(q); gen(R, k): k-ésima variável de R[x, y, ...]');
+  def('gens', 1, ([R]) => {
+    if (R instanceof MPolyRing) return new Tuple(R.gens());
+    if (R instanceof PolyRing || R instanceof FiniteField) return new Tuple([R.gen()]);
+    fail('gens espera um anel de polinômios ou corpo finito');
+  }, 'gens(R): tupla com as variáveis de R[x, y, ...]');
   def('ring', 1, ([x]) => elem(x).ring, 'ring(x): anel ao qual x pertence');
   def('base', 1, ([R]) => {
     if (R instanceof Elem) R = R.ring;
-    if (R instanceof PolyRing || R instanceof MatSpace) return R.base;
+    if (R instanceof PolyRing || R instanceof MPolyRing || R instanceof MatSpace) return R.base;
     fail('base espera um anel de polinômios ou de matrizes');
   }, 'base(R): anel de coeficientes');
   def('characteristic', 1, ([R]) => {
     if (R instanceof ZmodRing) return R.n;
     if (R instanceof FiniteField) return R.p;
-    if (R instanceof PolyRing || R instanceof MatSpace) return env.lookup('characteristic').impl([R.base]);
+    if (R instanceof PolyRing || R instanceof MPolyRing || R instanceof MatSpace) return env.lookup('characteristic').impl([R.base]);
     return int(0);
   }, 'characteristic(R)');
   def('order', 1, ([x]) => {
@@ -135,6 +150,10 @@ export function makeGlobals() {
     if (x instanceof Elem && x.ring instanceof PolyRing && x.ring.base instanceof ZmodRing) {
       return x.ring.opTo(Poly(ZZ, x.ring.v), 'zmod_poly_lift', x);
     }
+    if (x instanceof Elem && x.ring instanceof MPolyRing && x.ring.base instanceof ZmodRing) {
+      const R = x.ring;
+      return MPoly(ZZ, R.vars, R.order).fromTerms(R.terms(x).map(({ c, e }) => ({ c: R.base.lift(c), e })));
+    }
     if (x instanceof Elem && x.ring instanceof MatSpace && x.ring.base instanceof ZmodRing) {
       return Mat(ZZ).fromRows(x.ring.rows(x).map((r) => r.map((e) => x.ring.base.lift(e))));
     }
@@ -158,7 +177,13 @@ export function makeGlobals() {
   def('den', 1, ([x]) => (x.ring === QQ ? QQ.den(x) : int(1)), 'den(q): denominador');
   def('mod', 2, ([a, b]) => binop('%', a, b), 'mod(a, b) = a % b');
   def('div', 2, ([a, b]) => binop('//', a, b), 'div(a, b) = a // b (quociente com piso)');
-  def('divrem', 2, ([a, b]) => new Tuple(divrem(elem(a), elem(b))), 'divrem(a, b) = (q, r) com a = q·b + r');
+  def('divrem', 2, ([a, b]) => {
+    if (Array.isArray(b)) {
+      const [qs, r] = mdivrem(elem(a), b.map((x) => elem(x)));
+      return new Tuple([qs, r]);
+    }
+    return new Tuple(divrem(elem(a), elem(b)));
+  }, 'divrem(a, b) = (q, r) com a = q·b + r; divrem(f, [g1, g2, ...]) = ([q1, q2, ...], r) com f = Σ qi·gi + r');
   def('quo', 2, ([a, b]) => divrem(elem(a), elem(b))[0], 'quo(a, b): quociente euclidiano');
   def('rem', 2, ([a, b]) => divrem(elem(a), elem(b))[1], 'rem(a, b): resto euclidiano');
   def('inv', 1, ([x]) => inv(elem(x)), 'inv(x): inverso multiplicativo');
@@ -207,6 +232,7 @@ export function makeGlobals() {
       return factored(all, a.unit);
     }
     if (R instanceof PolyRing) return polyFactor(x);
+    if (R instanceof MPolyRing) return mpolyFactor(x);
     fail(`factor não suportado em ${R}`);
   }, 'factor(x): fatoração de inteiro, racional ou polinômio');
 
@@ -225,6 +251,17 @@ export function makeGlobals() {
     const unit = unitRing.wrap(v[0]);
     const list = [];
     for (let i = 1; i < v.length; i += 2) list.push([outRing.wrap(v[i]), ZZ.wrap(v[i + 1])]);
+    return factored(list, unit);
+  };
+
+  const mpolyFactor = (p) => {
+    const R = p.ring;
+    const F = flint();
+    R.requirePrime('factor');
+    const v = F.vec(F.raw(`factor_${R.tag}`, p.ptr, R.ctx));
+    const unit = R.base.wrap(v[0]);
+    const list = [];
+    for (let i = 1; i < v.length; i += 2) list.push([R.wrap(v[i]), ZZ.wrap(v[i + 1])]);
     return factored(list, unit);
   };
 
@@ -266,6 +303,10 @@ export function makeGlobals() {
     a = coerce(a, R); b = coerce(b, R);
     if (R === ZZ) return ZZ.op('fmpz_gcd', a, b);
     if (R instanceof PolyRing && R.has('gcd')) return R.op(`${R.tag}_gcd`, a, b);
+    if (R instanceof MPolyRing) {
+      R.requirePrime('gcd');
+      return R.op(`${R.tag}_gcd`, a, b);
+    }
     fail(`gcd não suportado em ${R}`);
   };
   const lcm2 = (a, b) => {
@@ -273,7 +314,10 @@ export function makeGlobals() {
     a = coerce(a, R); b = coerce(b, R);
     if (R === ZZ) return ZZ.op('fmpz_lcm', a, b);
     if (R instanceof PolyRing && R.has('lcm')) return R.op(`${R.tag}_lcm`, a, b);
-    if (R instanceof PolyRing) return div(mul(a, b), gcd2(a, b));
+    if (R instanceof PolyRing || R instanceof MPolyRing) {
+      if (isZero(a) || isZero(b)) return R.zero();
+      return div(mul(a, b), gcd2(a, b));
+    }
     fail(`lcm não suportado em ${R}`);
   };
   def('xgcd', 2, ([a, b]) => {
@@ -503,49 +547,159 @@ export function makeGlobals() {
   def('fibr', 1, ([n]) => RR.op('arb_fib', zz(n)), 'fibr(n): Fibonacci como real');
 
   // --------------------------------------------------------- polinômios
+  // Polinômio em uma variável; um elemento de R[x, y, ...] que só usa uma
+  // variável é convertido para R[v].
   const poly = (p, what = 'argumento') => {
+    if (p instanceof Elem && p.ring instanceof MPolyRing) return univariate(p, what);
     if (!(p instanceof Elem) || !(p.ring instanceof PolyRing)) fail(`${what} deve ser um polinômio`);
     return p;
   };
-  def('deg', 1, ([p]) => {
+  const isPoly = (p) => p instanceof Elem && (p.ring instanceof PolyRing || p.ring instanceof MPolyRing);
+  const isMPoly = (p) => p instanceof Elem && p.ring instanceof MPolyRing;
+  // Nome da variável representada por x: um gerador (x) ou uma string ("x").
+  const varName = (x) => {
+    const v = asVarName(x);
+    if (v === null) fail(`esperava uma variável, como x (recebeu ${typeof x === 'string' ? x : showText(x)})`);
+    return v;
+  };
+  const asVarName = (x) => {
+    if (typeof x === 'string') return x;
+    if (x instanceof Elem && x.ring instanceof PolyRing) {
+      const cs = x.ring.coeffs(x);
+      if (cs.length === 2 && isZero(cs[0]) && equal(cs[1], x.ring.base.one())) return x.ring.v;
+    }
+    if (x instanceof Elem && x.ring instanceof MPolyRing) {
+      const t = x.ring.terms(x);
+      if (t.length === 1 && equal(t[0].c, x.ring.base.one()) && t[0].e.reduce((a, b) => a + b, 0) === 1) {
+        return x.ring.vars[t[0].e.indexOf(1)];
+      }
+    }
+    return null;
+  };
+  // Termos não nulos do maior para o menor monômio: [{c, e: [expoentes]}].
+  const termsOf = (p) => {
+    if (isMPoly(p)) return p.ring.terms(p);
+    const R = (p = poly(p)).ring;
+    return R.coeffs(p).map((c, i) => ({ c, e: [i] })).filter(({ c }) => !isZero(c)).reverse();
+  };
+  const monoOf = (R, { c, e }) => (R instanceof MPolyRing ? R.fromTerms([{ c, e }]) :
+    R.fromCoeffs([...new Array(e[0]).fill(R.base.zero()), c]));
+  def('deg', null, ([p, x]) => {
     if (p instanceof Elem && isScalarRing(p.ring)) return int(isZero(p) ? -1 : 0);
-    return int(poly(p).ring.degree(p));
-  }, 'deg(p): grau (−1 para o polinômio zero)');
+    if (x !== undefined) {
+      const v = varName(x);
+      const R = elem(p).ring;
+      if (isMPoly(p)) {
+        if (R.isZero(p)) return int(-1);
+        return int(R.index(v) < 0 ? 0 : R.degreeIn(p, R.index(v)));
+      }
+      poly(p);
+      return int(R.len(p) === 0 ? -1 : v === R.v ? R.degree(p) : 0);
+    }
+    if (isMPoly(p)) return int(p.ring.degree(p));
+    return int((p = poly(p)).ring.degree(p));
+  }, 'deg(p): grau total (−1 para o polinômio zero); deg(p, x): grau em x');
   alias('degree', 'deg');
-  def('coeff', 2, ([p, i]) => poly(p).ring.coeff(p, ui(i, 'i')), 'coeff(p, i): coeficiente de x^i');
-  def('coeffs', 1, ([p]) => poly(p).ring.coeffs(p), 'coeffs(p): coeficientes do grau 0 ao grau n');
+  def('coeff', null, ([p, a, k]) => {
+    if (k !== undefined) {
+      // coeff(p, x, k): coeficiente de x^k, um polinômio nas demais variáveis.
+      const v = varName(a);
+      const n = ui(k, 'k');
+      if (!isMPoly(p)) {
+        const R = (p = poly(p)).ring;
+        if (v !== R.v) return n === 0 ? p : R.zero();
+        return R.coeff(p, n);
+      }
+      const R = p.ring;
+      const j = R.index(v);
+      if (j < 0) return n === 0 ? p : R.zero();
+      return R.fromTerms(R.terms(p).filter(({ e }) => e[j] === n).map(({ c, e }) => ({ c, e: e.map((x, i) => (i === j ? 0 : x)) })));
+    }
+    if (isPoly(a)) {
+      // coeff(p, monômio)
+      const S = commonRing(elem(p).ring, a.ring);
+      const m = termsOf(coerce(a, S));
+      if (m.length !== 1 || !equal(m[0].c, S.base.one())) fail('coeff(p, m): m deve ser um monômio, como x^2*y');
+      const key = m[0].e.join(',');
+      const t = termsOf(coerce(p, S)).find(({ e }) => e.join(',') === key);
+      return t ? t.c : S.base.zero();
+    }
+    if (isMPoly(p)) fail('coeff(p, m) com m monômio (como x^2*y) ou coeff(p, x, k)');
+    return (p = poly(p)).ring.coeff(p, ui(a, 'i'));
+  }, 'coeff(p, i): coeficiente de x^i; coeff(p, m): coeficiente do monômio m; coeff(p, x, k): coeficiente de x^k');
+  def('coeffs', 1, ([p]) => (isMPoly(p) ? p.ring.terms(p).map(({ c }) => c) : (p = poly(p)).ring.coeffs(p)),
+    'coeffs(p): coeficientes do grau 0 ao grau n; em várias variáveis, na ordem de terms(p)');
+  def('terms', 1, ([p]) => termsOf(p).map((t) => monoOf(p.ring, t)), 'terms(p): termos c·m, do maior para o menor');
+  def('monomials', 1, ([p]) => termsOf(p).map(({ e }) => monoOf(p.ring, { c: p.ring.base.one(), e })), 'monomials(p): monômios, do maior para o menor');
+  def('exponents', 1, ([p]) => termsOf(p).map(({ e }) => e.map((k) => int(k))), 'exponents(p): vetores de expoentes dos termos');
+  const leading = (p) => {
+    const t = termsOf(p);
+    if (!t.length) fail('o polinômio zero não tem termo líder');
+    return t[0];
+  };
   def('lc', 1, ([p]) => {
-    const R = poly(p).ring;
+    if (isMPoly(p)) return p.ring.isZero(p) ? p.ring.base.zero() : leading(p).c;
+    const R = (p = poly(p)).ring;
     const n = R.len(p);
     return n ? R.coeff(p, n - 1) : R.base.zero();
   }, 'lc(p): coeficiente líder');
+  def('lm', 1, ([p]) => monoOf(elem(p).ring, { ...leading(p), c: p.ring.base.one() }), 'lm(p): monômio líder');
+  def('lt', 1, ([p]) => monoOf(elem(p).ring, leading(p)), 'lt(p): termo líder');
   const derivative = (p) => {
-    const R = poly(p).ring;
+    const R = (p = poly(p)).ring;
     return R.op(`${R.tag}_derivative`, p);
   };
-  def('diff', null, ([p, n]) => {
-    let k = n === undefined ? 1 : ui(n, 'n');
+  def('diff', null, ([p, a, n]) => {
+    if (a !== undefined && asVarName(a) !== null) {
+      const v = varName(a);
+      let k = n === undefined ? 1 : ui(n, 'n');
+      if (isMPoly(p)) {
+        const R = p.ring;
+        const j = R.index(v);
+        if (j < 0) return R.zero();
+        let r = p;
+        while (k-- > 0) r = R.op(`${R.tag}_derivative`, r, j);
+        return r;
+      }
+      if (elem(p).ring instanceof PolyRing && v !== p.ring.v) return p.ring.zero();
+      let r = poly(p);
+      while (k-- > 0) r = derivative(r);
+      return r;
+    }
+    if (isMPoly(p)) fail('indique a variável: diff(p, x)');
+    let k = a === undefined ? 1 : ui(a, 'n');
     let r = poly(p);
     while (k-- > 0) r = derivative(r);
     return r;
-  }, "diff(p, n=1): derivada n-ésima");
+  }, 'diff(p, n=1): derivada n-ésima; diff(p, x, n=1): derivada parcial em x');
   alias('derivative', 'diff');
-  def('integral', 1, ([p]) => {
-    let R = poly(p).ring;
+  def('integral', null, ([p, a]) => {
+    if (a !== undefined) {
+      const v = varName(a);
+      let R = commonRing(elem(p).ring, Poly(isPoly(p) ? p.ring.base : p.ring, v));
+      if (R instanceof MPolyRing) {
+        if (R.base === ZZ) R = MPoly(QQ, R.vars, R.order);
+        if (!R.has('integral')) fail(`integral não suportada em ${R}`);
+        return R.op(`${R.tag}_integral`, coerce(p, R), R.index(v));
+      }
+      p = coerce(p, R);
+    }
+    if (isMPoly(p)) fail('indique a variável: integral(p, x)');
+    let R = (p = poly(p)).ring;
     if (R.base === ZZ) {
       R = Poly(QQ, R.v);
       p = coerce(p, R);
     }
     if (!R.has('integral')) fail(`integral não suportada em ${R}`);
     return R.op(`${R.tag}_integral`, p);
-  }, 'integral(p): primitiva com termo constante 0');
+  }, 'integral(p): primitiva com termo constante 0; integral(p, x): primitiva em x');
   def('compose', 2, ([p, q]) => compose(poly(p), elem(q)), 'compose(p, q) = p(q)');
   const compose = (p, q) => {
     const R = commonRing(p.ring, q.ring);
     return R.op(`${R.tag}_compose`, coerce(p, R), coerce(q, R));
   };
   def('content', 1, ([p]) => {
-    const R = poly(p).ring;
+    const R = (p = poly(p)).ring;
     if (R.base === ZZ) return R.op('fmpz_poly_content', p);
     if (R.base === QQ) {
       const z = R.opTo(Poly(ZZ, R.v), 'fmpq_poly_numerator', p);
@@ -556,19 +710,40 @@ export function makeGlobals() {
     fail('content requer polinômio sobre ZZ ou QQ');
   }, 'content(p): conteúdo (mdc dos coeficientes)');
   def('primitive', 1, ([p]) => {
-    const R = poly(p).ring;
+    const R = (p = poly(p)).ring;
     if (R.base === ZZ) return R.op('fmpz_poly_primitive_part', p);
     if (R.base === QQ) return Poly(ZZ, R.v).op('fmpz_poly_primitive_part', R.opTo(Poly(ZZ, R.v), 'fmpq_poly_numerator', p));
     fail('primitive requer polinômio sobre ZZ ou QQ');
   }, 'primitive(p): parte primitiva em ZZ[x]');
   def('monic', 1, ([p]) => {
-    let R = poly(p).ring;
+    if (isMPoly(p)) {
+      let R = p.ring;
+      if (R.base === ZZ) { R = MPoly(QQ, R.vars, R.order); p = coerce(p, R); }
+      if (R.isZero(p)) fail('o polinômio zero não tem coeficiente líder');
+      return R.op(`${R.tag}_make_monic`, p);
+    }
+    let R = (p = poly(p)).ring;
     if (R.base === ZZ) { R = Poly(QQ, R.v); p = coerce(p, R); }
     if (R.has('make_monic')) return R.op(`${R.tag}_make_monic`, p);
     return R.scalarMul(p, inv(env.lookup('lc').impl([p])));
   }, 'monic(p): p dividido pelo coeficiente líder');
-  def('disc', 1, ([p]) => {
-    const R = poly(p).ring;
+  // Resultante e discriminante em relação a uma variável de R[x, y, ...].
+  const mpolyElim = (name, ps, a) => {
+    let R = ps[0].ring;
+    for (const q of ps) R = commonRing(R, q.ring);
+    if (!(R instanceof MPolyRing)) return null;
+    if (a === undefined) fail(`indique a variável: ${name}(${ps.length === 2 ? 'p, q' : 'p'}, x)`);
+    const j = R.index(varName(a));
+    if (j < 0) fail(`${varName(a)} não é variável de ${R}`);
+    R.requirePrime(name);
+    return R.op(`${R.tag}_${name === 'disc' ? 'discriminant' : 'resultant'}`, ...ps.map((q) => coerce(q, R)), j);
+  };
+  def('disc', null, ([p, a]) => {
+    const m = mpolyElim('disc', [elem(p)], a);
+    if (m) return m;
+    p = poly(p);
+    const R = p.ring;
+    if (a !== undefined && R.v !== varName(a)) fail(`${varName(a)} não é a variável de ${R}`);
     if (R.base === ZZ) return R.op('fmpz_poly_discriminant', p);
     if (R.base === QQ) {
       const d = R.degree(p);
@@ -578,23 +753,34 @@ export function makeGlobals() {
       return mul(div(res, lc), int(s));
     }
     fail('disc requer polinômio sobre ZZ ou QQ');
-  }, 'disc(p): discriminante');
+  }, 'disc(p): discriminante; disc(p, x): discriminante em relação a x');
   alias('discriminant', 'disc');
-  def('resultant', 2, ([p, q]) => {
-    const R = commonRing(poly(p).ring, poly(q).ring);
+  def('resultant', null, ([p, q, a]) => {
+    const m = mpolyElim('resultant', [elem(p), elem(q)], a);
+    if (m) return m;
+    p = poly(p);
+    q = poly(q);
+    const R = commonRing(p.ring, q.ring);
+    if (a !== undefined && R.v !== varName(a)) fail(`${varName(a)} não é a variável de ${R}`);
     if (R.base === ZZ) return R.op('fmpz_poly_resultant', coerce(p, R), coerce(q, R));
     if (R.base === QQ) return R.op('fmpq_poly_resultant', coerce(p, R), coerce(q, R));
     fail('resultant requer polinômios sobre ZZ ou QQ');
-  }, 'resultant(p, q)');
+  }, 'resultant(p, q); resultant(p, q, x): resultante em relação a x');
   def('issquarefree', 1, ([p]) => {
     if (p.ring === ZZ) return toInt(ZZ.op('fmpz_moebius_mu', p)) !== 0;
-    const R = poly(p).ring;
+    if (isMPoly(p)) return mpolyFactor(p).every((t) => toInt(t.items[1]) === 1);
+    const R = (p = poly(p)).ring;
     if (R.has('is_squarefree')) return bool(R.op(`${R.tag}_is_squarefree`, p));
     return R.degree(gcdPoly(p, derivative(p))) === 0;
   }, 'issquarefree(x)');
   const gcdPoly = (a, b) => { const R = a.ring; return R.op(`${R.tag}_gcd`, a, b); };
   def('isirreducible', 1, ([p]) => {
-    const R = poly(p).ring;
+    if (isMPoly(p)) {
+      if (p.ring.degree(p) < 1) return false;
+      const f = mpolyFactor(p);
+      return f.length === 1 && toInt(f[0].items[1]) === 1;
+    }
+    const R = (p = poly(p)).ring;
     if (R.has('is_irreducible')) return bool(R.op(`${R.tag}_is_irreducible`, p));
     const f = polyFactor(p);
     return f.length === 1 && toInt(f[0].items[1]) === 1;
@@ -602,7 +788,7 @@ export function makeGlobals() {
   def('roots', null, ([p], kw) => {
     const F = flint();
     const go = () => {
-      const R = poly(p).ring;
+      const R = (p = poly(p)).ring;
       if (R.base === ZZ || R.base === QQ) {
         const out = [];
         for (const t of polyFactor(p)) {
@@ -631,7 +817,7 @@ export function makeGlobals() {
   }, 'roots(p, prec=): raízes (complexas certificadas para ZZ/QQ; no corpo para Z/pZ e GF(q))');
   def('realroots', null, ([p], kw) => {
     const F = flint();
-    const R = poly(p).ring;
+    const R = (p = poly(p)).ring;
     if (R.base !== ZZ && R.base !== QQ) fail('realroots requer polinômio sobre ZZ ou QQ');
     const go = () => {
       const out = [];
@@ -671,6 +857,22 @@ export function makeGlobals() {
     return P.fromCoeffs(items);
   }, 'poly([c0, c1, ...], R): polinômio a partir de coeficientes');
   def('evalpoly', 2, ([p, x]) => evalPoly(poly(p), x), 'evalpoly(p, x) = p(x)');
+  def('subs', null, ([p, a, v], kw) => {
+    const assign = new Map(Object.entries(kw));
+    if (a !== undefined) {
+      if (v === undefined) fail('use subs(p, x = valor, ...) ou subs(p, x, valor)');
+      assign.set(varName(a), v);
+    }
+    return substitute(elem(p), assign);
+  }, 'subs(p, x = a, y = b, ...): substitui variáveis por valores (números, polinômios, matrizes...)');
+  def('vars', 1, ([x]) => {
+    if (x instanceof MPolyRing) return new Tuple(x.gens());
+    if (x instanceof PolyRing) return new Tuple([x.gen()]);
+    if (isMPoly(x)) return x.ring.usedVars(x).map((i) => x.ring.gen(i));
+    if (isPoly(x)) return x.ring.degree(x) > 0 ? [x.ring.gen()] : [];
+    if (x instanceof Elem) return [];
+    fail('vars espera um polinômio ou anel de polinômios');
+  }, 'vars(p): variáveis que aparecem em p; vars(R): variáveis do anel');
 
   // --------------------------------------------------------- matrizes
   const mat = (m, what = 'argumento') => {
@@ -848,7 +1050,7 @@ export function makeGlobals() {
     if (!(f instanceof Func) && !(f instanceof Elem && f.ring instanceof PolyRing)) fail('esperava uma função');
     return f;
   };
-  def('len', 1, ([xs]) => int(xs instanceof Elem && xs.ring instanceof PolyRing ? xs.ring.len(xs) : list(xs).length), 'len(xs): tamanho');
+  def('len', 1, ([xs]) => int(xs instanceof Elem && (xs.ring instanceof PolyRing || xs.ring instanceof MPolyRing) ? xs.ring.len(xs) : list(xs).length), 'len(xs): tamanho (número de termos, para polinômios em várias variáveis)');
   alias('length', 'len');
   def('map', 2, ([xs, f]) => list(xs).map((x) => callValue(fn(f), [x])), 'map(xs, f): [f(x) | x <- xs]');
   def('filter', 2, ([xs, f]) => list(xs).filter((x) => toBool(callValue(fn(f), [x]), 'predicado')), 'filter(xs, p): elementos que satisfazem p');
@@ -994,7 +1196,11 @@ export function makeGlobals() {
   // flint("arb_gamma", x): chama um binding de bindings.def, convertendo os
   // argumentos para os tipos C declarados. Contextos (Z/nZ, GF(q)) vêm de um
   // argumento-anel explícito ou dos elementos passados.
-  const tagRing = (tag, base, v) => {
+  const tagRing = (tag, base, v, mring) => {
+    if (tag.endsWith('_mpoly')) {
+      if (!mring || mring.tag !== tag) fail(`${tag} requer um polinômio de ${tag === 'fmpz_mpoly' ? 'ZZ' : tag === 'fmpq_mpoly' ? 'QQ' : 'Zmod(n)'}[x, y, ...] como argumento`);
+      return mring;
+    }
     switch (tag) {
       case 'fmpz': return ZZ;
       case 'fmpq': return QQ;
@@ -1018,7 +1224,10 @@ export function makeGlobals() {
     const types = sig[1];
     let base = null;
     let v = 'x';
+    let mring = null;
     for (const a of rest) {
+      if (a instanceof MPolyRing) mring ??= a;
+      if (a instanceof Elem && a.ring instanceof MPolyRing) mring ??= a.ring;
       if (a instanceof ZmodRing || a instanceof FiniteField) base ??= a;
       if (a instanceof Elem) {
         const B = a.ring.base ?? a.ring;
@@ -1035,16 +1244,21 @@ export function makeGlobals() {
         if (!base) fail(`${name} requer um anel Zmod(n)/GF(q) como argumento`);
         continue;
       }
+      if (t === 'mctx') {
+        if (rest[k] instanceof Ring) k++;
+        if (!mring) fail(`${name} requer um polinômio em várias variáveis como argumento`);
+        continue;
+      }
       if (k >= rest.length) fail(`${name} espera mais argumentos: (${types.filter((x) => x !== 'prec').join(', ')})`);
       const a = rest[k++];
       if (t === 'si' || t === 'ui') call.push(toInt(a));
       else if (t === 'd') call.push(toNum(a));
       else if (t === 'str') call.push(String(a));
-      else call.push(coerce(elem(a), tagRing(t, base, v)));
+      else call.push(coerce(elem(a), tagRing(t, base, v, mring)));
     }
     if (k !== rest.length) fail(`${name} espera ${k} argumento${k === 1 ? '' : 's'}, recebeu ${rest.length}`);
-    const caller = base ?? ZZ;
-    const out = ['int', 'si', 'ui', 'd'].includes(ret) ? undefined : tagRing(ret, base, v);
+    const caller = mring ?? base ?? ZZ;
+    const out = ['int', 'si', 'ui', 'd'].includes(ret) ? undefined : ret === 'zmod' && mring ? mring.base : tagRing(ret, base, v, mring);
     const r = caller.call(name, call, out);
     if (typeof r === 'number') return ret === 'd' ? RR.fromNumber(r) : int(r);
     return r;
@@ -1451,6 +1665,8 @@ function ringCall(R, args, kw) {
   if (R instanceof ZmodRing && x.ring instanceof ZmodRing) return R.coerce(x.ring.lift(x));
   if (isScalarRing(R) && x.ring instanceof MatSpace) return coerce(x, Mat(R));
   if (isScalarRing(R) && !(R instanceof FiniteField) && x.ring instanceof PolyRing) return coerce(x, Poly(R, x.ring.v));
+  if (isScalarRing(R) && x.ring instanceof MPolyRing) return coerce(x, MPoly(R, x.ring.vars, x.ring.order));
+  if (R instanceof PolyRing && x.ring instanceof MPolyRing) return coerce(univariate(x), R);
   if (R instanceof FiniteField && x.ring instanceof PolyRing) {
     const P = Poly(ZZ, x.ring.v);
     const z = x.ring.base === ZZ ? x : coerce(x, P);
@@ -1462,12 +1678,92 @@ function ringCall(R, args, kw) {
   return coerce(x, R);
 }
 
+// Elemento de R[x, y, ...] que usa no máximo uma variável, como elemento de R[v].
+function univariate(p, what = 'argumento') {
+  const R = p.ring;
+  const used = R.usedVars(p);
+  if (used.length > 1) fail(`${what} deve ser um polinômio em uma variável (usa ${used.map((i) => R.vars[i]).join(', ')})`);
+  const j = used.length ? used[0] : 0;
+  const cs = [];
+  for (const { c, e } of R.terms(p)) cs[e[j]] = c;
+  for (let i = 0; i < cs.length; i++) cs[i] ??= R.base.zero();
+  return Poly(R.base, R.vars[j]).fromCoeffs(cs);
+}
+
+// Substitui variáveis (por nome) por valores; as demais ficam.
+function substitute(p, assign) {
+  const R = p.ring;
+  if (R instanceof PolyRing) return assign.has(R.v) ? evalPoly(p, assign.get(R.v)) : p;
+  if (R instanceof MPolyRing) return evalMPoly(p, R.vars.map((v) => assign.get(v)));
+  return p;
+}
+
+// vals[i]: valor da i-ésima variável, ou undefined para mantê-la.
+function evalMPoly(p, vals) {
+  const R = p.ring;
+  const given = vals.filter((v) => v !== undefined);
+  for (const v of given) if (!(v instanceof Elem)) fail('polinômio avaliado em valor não numérico');
+  // Valores escalares em ZZ, QQ ou Z/nZ: avaliação direta na FLINT.
+  if (given.every((v) => isScalarRing(v.ring))) {
+    let B = R.base;
+    for (const v of given) B = commonRing(B, v.ring);
+    if (B === ZZ || B === QQ || B instanceof ZmodRing) {
+      const S = MPoly(B, R.vars, R.order);
+      const q = coerce(p, S);
+      const F = flint();
+      if (given.length === vals.length) {
+        const cs = vals.map((v) => coerce(v, B));
+        const arr = F.M._malloc(4 * cs.length);
+        try {
+          cs.forEach((c, i) => { F.M.HEAPU32[(arr >> 2) + i] = c.ptr; });
+          return B.wrap(F.raw(`eval_${S.tag}`, q.ptr, arr, S.ctx));
+        } finally {
+          F.M._free(arr);
+        }
+      }
+      let r = q;
+      vals.forEach((v, i) => { if (v !== undefined) r = S.op(`${S.tag}_evaluate_one`, r, i, coerce(v, B)); });
+      return r;
+    }
+  }
+  // Caso geral: Σ c·Π vᵢ^eᵢ com a aritmética da linguagem (RR, CC, matrizes, polinômios...).
+  // Com matrizes, as constantes viram múltiplos da identidade.
+  const m = given.find((v) => v.ring instanceof MatSpace);
+  if (m && !m.ring.isSquare(m)) fail('a matriz deve ser quadrada');
+  const one = m ? m.ring.identity(m.ring.nrows(m)) : null;
+  const xs = vals.map((v, i) => v ?? R.gen(i));
+  const powers = new Map();
+  const power = (i, k) => {
+    const key = `${i}^${k}`;
+    if (!powers.has(key)) powers.set(key, pow(xs[i], ZZ.fromInt(k)));
+    return powers.get(key);
+  };
+  let acc = null;
+  for (const { c, e } of R.terms(p)) {
+    let t = one ? mul(one, c) : c;
+    e.forEach((k, i) => { if (k) t = mul(t, power(i, k)); });
+    acc = acc === null ? t : add(acc, t);
+  }
+  return acc ?? (one ? mul(one, R.base.zero()) : R.base.zero());
+}
+
+// Horner com a aritmética da linguagem.
+function horner(p, x) {
+  const cs = p.ring.coeffs(p);
+  let acc = p.ring.base.zero();
+  for (let i = cs.length - 1; i >= 0; i--) acc = add(mul(acc, x), cs[i]);
+  return acc;
+}
+
 function evalPoly(p, x) {
+  if (p.ring instanceof MPolyRing) return evalMPoly(p, x);
   if (Array.isArray(x)) return x.map((v) => evalPoly(p, v));
   if (!(x instanceof Elem)) fail('polinômio avaliado em valor não numérico');
   const R = p.ring;
+  if (x.ring instanceof MPolyRing) return horner(p, x);
   if (x.ring instanceof PolyRing) {
     const S = commonRing(R, x.ring);
+    if (S instanceof MPolyRing) return horner(p, x);
     return S.op(`${S.tag}_compose`, coerce(p, S), coerce(x, S));
   }
   if (x.ring instanceof MatSpace) {

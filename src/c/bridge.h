@@ -40,6 +40,12 @@
 #include <flint/ulong_extras.h>
 #include <flint/partitions.h>
 #include <flint/bernoulli.h>
+#include <flint/fmpz_mpoly.h>
+#include <flint/fmpz_mpoly_factor.h>
+#include <flint/fmpq_mpoly.h>
+#include <flint/fmpq_mpoly_factor.h>
+#include <flint/fmpz_mod_mpoly.h>
+#include <flint/fmpz_mod_mpoly_factor.h>
 
 extern slong CY_PREC;
 
@@ -64,6 +70,11 @@ void *cy_new_arb_mat(slong r, slong c, const void *ctx);
 void *cy_new_acb_mat(slong r, slong c, const void *ctx);
 void *cy_new_zmod_mat(slong r, slong c, const void *ctx);
 void *cy_new_fq_mat(slong r, slong c, const void *ctx);
+void *cy_new_fmpz_mpoly(const void *ctx);
+void *cy_new_fmpq_mpoly(const void *ctx);
+void *cy_new_zmod_mpoly(const void *ctx);
+void cy_free_fmpz(void *p, const void *ctx);
+void cy_free_fmpq(void *p, const void *ctx);
 slong cy_nrows_fmpz_mat(const void *m, const void *ctx);
 slong cy_ncols_fmpz_mat(const void *m, const void *ctx);
 slong cy_nrows_fmpq_mat(const void *m, const void *ctx);

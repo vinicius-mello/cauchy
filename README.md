@@ -16,7 +16,8 @@ ver `src/ui/fonts/OFL-JetBrainsMono.txt`), sem dependências em tempo de execuç
 
 - `src/c/bindings.def` — tabela das operações FLINT expostas; `tools/gen-bindings.mjs` gera os wrappers.
 - `src/c/bridge.c`, `helpers.c` — alocação, strings, fatorações, raízes, autovalores, erros.
-- `src/js/runtime/` — anéis (ZZ, QQ, RR, CC, Zmod, GF, R[x], Mat), coerção, exibição.
+- `src/c/mpoly.c` — polinômios em várias variáveis (contextos, termos, avaliação, fatoração, divisão).
+- `src/js/runtime/` — anéis (ZZ, QQ, RR, CC, Zmod, GF, R[x], R[x, y, …], Mat), coerção, exibição.
 - `src/js/lang/` — lexer, parser Pratt, avaliador, análise de variáveis livres, biblioteca.
 - `src/js/notebook/` — grafo reativo de células (arenas de memória) e o Web Worker.
 - `src/ui/` — interface (editor com realce, renderização matemática, gráficos SVG, widgets).

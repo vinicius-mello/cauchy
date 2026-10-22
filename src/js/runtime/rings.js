@@ -1,5 +1,5 @@
 // Anéis e elementos sobre a FLINT: ZZ, QQ, RR (arb), CC (acb), Z/nZ, GF(q),
-// anéis de polinômios R[x] e espaços de matrizes Mat(R). Inclui coerção para
+// anéis de polinômios R[x] e R[x, y, ...] e espaços de matrizes Mat(R). Inclui coerção para
 // um anel comum e as operações aritméticas da linguagem.
 
 import { fail } from './errors.js';
@@ -302,6 +302,139 @@ export class PolyRing extends Ring {
   isField() { return false; }
 }
 
+const MPOLY_TAG = { fmpz: 'fmpz_mpoly', fmpq: 'fmpq_mpoly', zmod: 'zmod_mpoly' };
+export const ORDERS = ['lex', 'deglex', 'degrevlex'];
+
+// Polinômios em várias variáveis (ZZ, QQ ou Z/nZ). Os nomes das variáveis e a
+// ordem monomial ficam aqui; a FLINT só conhece os índices.
+export class MPolyRing extends Ring {
+  constructor(base, vars, order) {
+    const tag = MPOLY_TAG[base.tag];
+    if (!tag) fail(`polinômios em várias variáveis sobre ${base} não são suportados (use ZZ, QQ ou Zmod(n))`);
+    const ord = ORDERS.indexOf(order);
+    const ctx = tag === 'zmod_mpoly'
+      ? F.raw('mctx_new_zmod_mpoly', vars.length, ord, base.n.ptr)
+      : F.raw(`mctx_new_${tag}`, vars.length, ord);
+    super(tag, ctx);
+    this.base = base;
+    this.vars = vars;
+    this.order = order;
+    this.name = `${base}[${vars.join(', ')}${order === 'degrevlex' ? '' : `, order = "${order}"`}]`;
+  }
+
+  get nvars() { return this.vars.length; }
+  index(v) { return this.vars.indexOf(v); }
+
+  // Elementos de S que vêm para cá: escalares, R[x] e R[x, ...] com variáveis
+  // contidas nas deste anel.
+  accepts(S) {
+    if (S === this) return true;
+    if (S instanceof MPolyRing) return S.vars.every((v) => this.vars.includes(v)) && this.acceptsBase(S.base);
+    if (S instanceof PolyRing) return this.vars.includes(S.v) && this.acceptsBase(S.base);
+    if (S instanceof MatSpace) return false;
+    return this.acceptsBase(S);
+  }
+
+  acceptsBase(S) {
+    return this.base.accepts(S) || (this.base instanceof ZmodRing && S === QQ);
+  }
+
+  coerce(x) {
+    const S = x.ring;
+    if (S === this) return x;
+    if (S instanceof MPolyRing) {
+      const map = S.vars.map((v) => this.index(v));
+      if (map.includes(-1)) fail(`não é possível converter ${S} em ${this}`);
+      return this.fromTerms(S.terms(x).map(({ c, e }) => {
+        const f = new Array(this.nvars).fill(0);
+        e.forEach((k, i) => { f[map[i]] = k; });
+        return { c, e: f };
+      }));
+    }
+    if (S instanceof PolyRing) {
+      const j = this.index(S.v);
+      if (j < 0) fail(`não é possível converter ${S} em ${this}`);
+      return this.fromTerms(S.coeffs(x).map((c, i) => {
+        const e = new Array(this.nvars).fill(0);
+        e[j] = i;
+        return { c, e };
+      }));
+    }
+    if (this.acceptsBase(S)) return this.constant(x);
+    return super.coerce(x);
+  }
+
+  constant(c) {
+    return this.wrap(F.raw(`const_${this.tag}`, coerce(c, this.base).ptr, this.ctx));
+  }
+
+  len(p) { return F.raw(`len_${this.tag}`, p.ptr, this.ctx); }
+
+  // Termos na ordem monomial do anel (do maior para o menor): [{c, e}].
+  terms(p) {
+    const n = this.len(p);
+    const k = this.nvars;
+    const buf = F.M._malloc(8 * Math.max(1, k));
+    try {
+      const out = [];
+      for (let i = 0; i < n; i++) {
+        if (!F.raw(`term_exp_${this.tag}`, p.ptr, i, buf, this.ctx)) fail('expoente grande demais');
+        const e = Array.from(F.M.HEAPU32.subarray(buf >> 2, (buf >> 2) + k));
+        out.push({ c: this.base.wrap(F.raw(`term_coeff_${this.tag}`, p.ptr, i, this.ctx)), e });
+      }
+      return out;
+    } finally {
+      F.M._free(buf);
+    }
+  }
+
+  fromTerms(terms) {
+    const p = this.wrap(F.raw(`new_${this.tag}`, this.ctx));
+    const k = this.nvars;
+    const buf = F.M._malloc(4 * Math.max(1, k));
+    try {
+      for (const { c, e } of terms) {
+        for (let i = 0; i < k; i++) F.M.HEAPU32[(buf >> 2) + i] = e[i];
+        F.raw(`push_${this.tag}`, p.ptr, coerce(c, this.base).ptr, buf, this.ctx);
+      }
+      F.raw(`finish_${this.tag}`, p.ptr, this.ctx);
+    } finally {
+      F.M._free(buf);
+    }
+    return p;
+  }
+
+  gen(i = 0) { return this.wrap(F.raw(`gen_${this.tag}`, i, this.ctx)); }
+  gens() { return this.vars.map((_, i) => this.gen(i)); }
+
+  // Constante (todos os expoentes nulos)? Devolve o coeficiente ou null.
+  constantValue(p) {
+    const n = this.len(p);
+    if (n === 0) return this.base.zero();
+    if (n > 1 || this.totalDegree(p) !== 0) return null;
+    return this.terms(p)[0].c;
+  }
+
+  totalDegree(p) { return this.op(`${this.tag}_total_degree`, p); }
+  degreeIn(p, i) { return this.op(`${this.tag}_degree`, p, i); }
+  degree(p) { return this.len(p) ? this.totalDegree(p) : -1; }
+
+  // Variáveis que aparecem em p (índices).
+  usedVars(p) {
+    const used = new Set();
+    for (let i = 0; i < this.nvars; i++) if (this.len(p) && this.degreeIn(p, i) > 0) used.add(i);
+    return [...used];
+  }
+
+  scalarMul(p, c) { return this.op(`${this.tag}_scalar_mul`, p, coerce(c, this.base)); }
+  pow(p, e) { return this.op(`${this.tag}_pow`, p, e); }
+  isZero(p) { return this.len(p) === 0; }
+  isField() { return false; }
+  requirePrime(what) {
+    if (this.base instanceof ZmodRing && !this.base.prime) fail(`${what} em ${this} requer n primo`);
+  }
+}
+
 export class MatSpace extends Ring {
   constructor(base) {
     const tag = MAT_TAG[base.tag];
@@ -449,6 +582,14 @@ export function Poly(base, v) {
   return intern(`${base.key}[${v}]`, () => new PolyRing(base, v));
 }
 
+// R[x, y, ...]; com uma só variável é o anel univariado R[x].
+export function MPoly(base, vars, order = 'degrevlex') {
+  if (new Set(vars).size !== vars.length) fail('variáveis repetidas');
+  if (!ORDERS.includes(order)) fail(`ordem monomial desconhecida: ${order} (use lex, deglex ou degrevlex)`);
+  if (vars.length === 1) return Poly(base, vars[0]);
+  return intern(`${base.key}[${vars.join(',')};${order}]`, () => new MPolyRing(base, vars, order));
+}
+
 export function Mat(base) {
   return intern(`Mat(${base.key})`, () => new MatSpace(base));
 }
@@ -458,8 +599,11 @@ const QQx = (v) => Poly(QQ, v);
 // ------------------------------------------------------------ coerção
 
 export function isScalarRing(R) {
-  return !(R instanceof PolyRing) && !(R instanceof MatSpace);
+  return !(R instanceof PolyRing) && !(R instanceof MPolyRing) && !(R instanceof MatSpace);
 }
+
+const isPolyRing = (R) => R instanceof PolyRing || R instanceof MPolyRing;
+const varsOf = (R) => (R instanceof MPolyRing ? R.vars : R instanceof PolyRing ? [R.v] : []);
 
 export function commonRing(A, B) {
   if (A === B) return A;
@@ -468,6 +612,15 @@ export function commonRing(A, B) {
   if (A instanceof MatSpace || B instanceof MatSpace) {
     if (A instanceof MatSpace && B instanceof MatSpace) return Mat(commonRing(A.base, B.base));
     fail(`não há anel comum para ${A} e ${B}`);
+  }
+  // Variáveis diferentes (ou algum lado já multivariado): junta as variáveis.
+  if (A instanceof MPolyRing || B instanceof MPolyRing ||
+      (A instanceof PolyRing && B instanceof PolyRing && A.v !== B.v)) {
+    const vars = [...varsOf(A)];
+    for (const v of varsOf(B)) if (!vars.includes(v)) vars.push(v);
+    const base = commonRing(isPolyRing(A) ? A.base : A, isPolyRing(B) ? B.base : B);
+    const order = A instanceof MPolyRing ? A.order : B instanceof MPolyRing ? B.order : 'degrevlex';
+    return MPoly(base, vars, order);
   }
   if (A instanceof PolyRing || B instanceof PolyRing) {
     const va = A instanceof PolyRing ? A.v : null;
@@ -485,6 +638,7 @@ export function commonRing(A, B) {
 
 export function coerce(x, R) {
   if (x.ring === R) return x;
+  if (R instanceof MPolyRing && R.accepts(x.ring)) return R.coerce(x);
   if (R instanceof ZmodRing && x.ring === QQ) return R.coerce(x);
   if (R instanceof FiniteField && x.ring instanceof ZmodRing) return R.coerce(x);
   if (!R.accepts(x.ring)) fail(`não é possível converter ${x.ring} em ${R}`);
@@ -533,7 +687,7 @@ export function isZero(x) {
   if (R === QQ) return QQ.isZero(x);
   if (R === RR) return F.raw('arb_cmp3', x.ptr, RR.zero().ptr, 0) === 1;
   if (R === CC) return F.raw('acb_eq3', x.ptr, CC.zero().ptr) === 1;
-  if (R instanceof PolyRing) return R.len(x) === 0;
+  if (R instanceof PolyRing || R instanceof MPolyRing) return R.len(x) === 0;
   return R.eq(x, R.zero());
 }
 
@@ -555,7 +709,47 @@ export function div(a, b) {
     return R.div ? R.div(x, y) : R.op(`${R.tag}_div`, x, y);
   }
   if (R instanceof PolyRing) return polyDiv(R, x, y);
+  if (R instanceof MPolyRing) return mpolyDiv(R, x, y);
   fail(`divisão não suportada em ${R}`);
+}
+
+function mpolyDiv(R, x, y) {
+  if (R.isZero(y)) fail('divisão por zero');
+  const c = R.constantValue(y);
+  if (c !== null) {
+    if (R.base === ZZ) return mpolyDiv(MPolyQQ(R), coerce(x, MPolyQQ(R)), coerce(y, MPolyQQ(R)));
+    return R.scalarMul(x, inv(c));
+  }
+  R.requirePrime('divisão');
+  try {
+    return R.op(`${R.tag}_divides`, x, y);
+  } catch (e) {
+    if (R.base === ZZ) return mpolyDiv(MPolyQQ(R), coerce(x, MPolyQQ(R)), coerce(y, MPolyQQ(R)));
+    if (/divisão não exata/.test(e.message)) fail('divisão não exata de polinômios; use divrem, quo ou rem');
+    throw e;
+  }
+}
+
+const MPolyQQ = (R) => MPoly(QQ, R.vars, R.order);
+
+// Divisão de a pelos polinômios bs (algoritmo de divisão multivariado na
+// ordem do anel): [[q1, ...], r] com a = Σ qi·bi + r.
+export function mdivrem(a, bs) {
+  let R = a.ring;
+  for (const b of bs) R = commonRing(R, b.ring);
+  if (!(R instanceof MPolyRing)) fail('divrem com lista de divisores requer polinômios em várias variáveis');
+  if (R.base === ZZ) R = MPolyQQ(R);
+  R.requirePrime('divrem');
+  const n = bs.length;
+  const arr = F.M._malloc(4 * Math.max(1, n));
+  try {
+    const ys = bs.map((b) => coerce(b, R));
+    ys.forEach((y, i) => { F.M.HEAPU32[(arr >> 2) + i] = y.ptr; });
+    const v = F.vec(F.raw(`divrem_ideal_${R.tag}`, coerce(a, R).ptr, arr, n, R.ctx)).map((p) => R.wrap(p));
+    return [v.slice(1), v[0]];
+  } finally {
+    F.M._free(arr);
+  }
 }
 
 function polyDiv(R, x, y) {
@@ -581,6 +775,10 @@ function polyDiv(R, x, y) {
 
 export function divrem(a, b) {
   let [R, x, y] = unify(a, b);
+  if (R instanceof MPolyRing) {
+    const [[q], r] = mdivrem(x, [y]);
+    return [q, r];
+  }
   if (R === ZZ) {
     return F.vec(F.raw('divrem_fmpz', x.ptr, y.ptr, 0)).map((p) => ZZ.wrap(p));
   }
@@ -609,6 +807,10 @@ export function inv(a) {
   if (R instanceof FiniteField) return R.div(R.one(), a);
   if (R instanceof MatSpace) return matInv(a);
   if (R instanceof PolyRing && R.len(a) === 1) return R.fromCoeffs([inv(R.coeff(a, 0))]);
+  if (R instanceof MPolyRing) {
+    const c = R.constantValue(a);
+    if (c !== null) return coerce(inv(c), R.base === ZZ ? MPolyQQ(R) : R);
+  }
   fail(`inverso não suportado em ${R}`);
 }
 
@@ -657,6 +859,11 @@ export function pow(a, e) {
       return A.op('fq_pow', a, e);
     }
     if (A instanceof PolyRing) {
+      if (neg) return pow(inv(a), neg1(e));
+      if (n === null) fail('expoente grande demais');
+      return A.pow(a, n);
+    }
+    if (A instanceof MPolyRing) {
       if (neg) return pow(inv(a), neg1(e));
       if (n === null) fail('expoente grande demais');
       return A.pow(a, n);
@@ -751,7 +958,7 @@ export function floorDiv(a, b) {
     if (ZZ.isZero(y)) fail('divisão por zero');
     return ZZ.op('fmpz_fdiv_q', x, y);
   }
-  if (R instanceof PolyRing) return divrem(x, y)[0];
+  if (R instanceof PolyRing || R instanceof MPolyRing) return divrem(x, y)[0];
   if (R === QQ || R === RR) return floor(div(x, y));
   fail(`// não suportado em ${R}`);
 }
@@ -762,7 +969,7 @@ export function mod(a, b) {
     if (ZZ.isZero(y)) fail('divisão por zero');
     return ZZ.op('fmpz_fdiv_r', x, y);
   }
-  if (R instanceof PolyRing) return divrem(x, y)[1];
+  if (R instanceof PolyRing || R instanceof MPolyRing) return divrem(x, y)[1];
   if (R === QQ || R === RR) return sub(x, mul(y, floor(div(x, y))));
   fail(`% não suportado em ${R}`);
 }

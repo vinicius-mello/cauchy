@@ -36,6 +36,7 @@ export function render(d) {
 
 function isCompound(d) {
   if (d.t === 'poly') return d.terms.length > 1 || (d.terms.length === 1 && !(d.terms[0].c.t === 'int' && d.terms[0].c.s === '1') && d.terms[0].e > 0);
+  if (d.t === 'mpoly') return d.terms.length > 1 || (d.terms.length === 1 && !(d.terms[0].c.t === 'int' && d.terms[0].c.s === '1') && d.terms[0].m.length > 0);
   if (d.t === 'gf') return isCompound(d.poly);
   if (d.t === 'cplx') return !d.imZero && !(d.re.mid === '0' && !d.re.rad);
   if (d.t === 'ball') return !!d.rad;
@@ -80,10 +81,11 @@ function r(d, slots, inner) {
       return `${ball(d.re)}<span class="op">${imNeg ? '−' : '+'}</span>${iPart}`;
     }
     case 'gf': return r(d.poly, slots, inner);
-    case 'poly': {
+    case 'poly': case 'mpoly': {
       if (!d.terms.length) return '<span class="n">0</span>';
+      const power = (v, j) => `<i class="var">${esc(v)}</i>${j > 1 ? `<sup>${j}</sup>` : ''}`;
       let out = '';
-      d.terms.forEach(({ c, e }, k) => {
+      d.terms.forEach(({ c, e, m }, k) => {
         let cd = c;
         let neg = false;
         if (!isCompound(c)) {
@@ -92,7 +94,7 @@ function r(d, slots, inner) {
           if (c.t === 'ball' && !c.rad && c.mid.startsWith('-')) { neg = true; cd = { ...c, mid: c.mid.slice(1) }; }
         }
         const one = cd.t === 'int' && cd.s === '1';
-        const mon = e === 0 ? '' : `<i class="var">${esc(d.v)}</i>${e > 1 ? `<sup>${e}</sup>` : ''}`;
+        const mon = m ? m.map(([v, j]) => power(v, j)).join('&#8202;') : e === 0 ? '' : power(d.v, e);
         let term;
         if (!mon) term = r(cd, slots, true);
         else if (one) term = mon;

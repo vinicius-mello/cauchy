@@ -77,6 +77,10 @@ export const SYNTAX_NOTES = {
 precisão não decide geram erro — aumente <code>prec</code>.</p>
 <p>Listas e matrizes são indexadas a partir de 1; <code>xs[-1]</code> é o último elemento.
 Um polinômio é também uma função: <code>p(3)</code>, <code>p(x + 1)</code>.</p>
+<p>Polinômios em várias variáveis: <code>(x, y) = gens(QQ[x, y])</code>, com coeficientes em
+<code>ZZ</code>, <code>QQ</code> ou <code>Zmod(n)</code> e ordem monomial opcional
+(<code>QQ[x, y, order = "lex"]</code>). Polinômios em variáveis diferentes se combinam no anel
+com todas elas.</p>
 <p>Ao digitar, <code>-&gt; &lt;- =&gt; |&gt; &lt;= &gt;= !=</code> viram
 <code>→ ← ⇒ ▷ ≤ ≥ ≠</code> (desative no rodapé; Ctrl+Z desfaz). Os dois estilos são
 equivalentes, assim como <code>·</code> e <code>×</code> para <code>*</code>.</p>
@@ -92,6 +96,10 @@ complexos (<code>1 + 2i</code>) ou tuplas <code>(x, y)</code> e atributos nomead
 current precision cannot decide raise an error — increase <code>prec</code>.</p>
 <p>Lists and matrices are 1-indexed; <code>xs[-1]</code> is the last element.
 A polynomial is also a function: <code>p(3)</code>, <code>p(x + 1)</code>.</p>
+<p>Multivariate polynomials: <code>(x, y) = gens(QQ[x, y])</code>, with coefficients in
+<code>ZZ</code>, <code>QQ</code> or <code>Zmod(n)</code> and an optional monomial order
+(<code>QQ[x, y, order = "lex"]</code>). Polynomials in different variables combine in the ring
+with all of them.</p>
 <p>While typing, <code>-&gt; &lt;- =&gt; |&gt; &lt;= &gt;= !=</code> become
 <code>→ ← ⇒ ▷ ≤ ≥ ≠</code> (turn off in the footer; Ctrl+Z undoes). Both styles are
 equivalent, as are <code>·</code> and <code>×</code> for <code>*</code>.</p>
@@ -117,6 +125,7 @@ if x > 0 then x else -x
 match xs { [h, ...t] => h; _ => 0 }
 with digits = 50: pi  # precisão local
 R = QQ[x]; x = gen(R) # polinômios
+(x, y) = gens(QQ[x, y])   # várias variáveis
 A = [1, 2; 3, 4]      # matriz
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # entrada reativa
@@ -134,6 +143,7 @@ if x > 0 then x else -x
 match xs { [h, ...t] => h; _ => 0 }
 with digits = 50: pi  # local precision
 R = QQ[x]; x = gen(R) # polynomials
+(x, y) = gens(QQ[x, y])   # several variables
 A = [1, 2; 3, 4]      # matrix
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # reactive input
@@ -199,6 +209,35 @@ const w = (s) => WORDS[s] ?? s;
 // [padrão, tradução] — do mais específico para o mais genérico.
 const RULES = [
   [/^nome não definido: (.+)$/, 'undefined name: $1'],
+  // polinômios em várias variáveis
+  [/^polinômios em várias variáveis sobre (.+) não são suportados \(use ZZ, QQ ou Zmod\(n\)\)$/, 'multivariate polynomials over $1 are not supported (use ZZ, QQ or Zmod(n))'],
+  [/^variáveis repetidas$/, 'repeated variables'],
+  [/^ordem monomial desconhecida: (.+) \(use lex, deglex ou degrevlex\)$/, 'unknown monomial order: $1 (use lex, deglex or degrevlex)'],
+  [/^(.+) em (.+) requer n primo$/, (_, x, R) => `${{ 'divisão': 'division' }[x] ?? x} in ${R} requires n prime`],
+  [/^divrem com lista de divisores requer polinômios em várias variáveis$/, 'divrem with a list of divisors requires multivariate polynomials'],
+  [/^use R\[x\] ou R\[x, y, \.\.\.\] com nomes de variáveis$/, 'use R[x] or R[x, y, ...] with variable names'],
+  [/^opção desconhecida em R\[\.\.\.\]: (.+)$/, 'unknown option in R[...]: $1'],
+  [/^order deve ser "lex", "deglex" ou "degrevlex"$/, 'order must be "lex", "deglex" or "degrevlex"'],
+  [/^opções nomeadas só valem em R\[x, \.\.\.\]$/, 'named options are only valid in R[x, ...]'],
+  [/^índice após opção nomeada$/, 'index after named option'],
+  [/^polinômio em (\d+) variáveis \((.+)\) espera (\d+) argumentos, recebeu (\d+)$/, 'polynomial in $1 variables ($2) expects $3 arguments, got $4'],
+  [/^use coeff\(p, monômio\) para coeficientes de polinômios em várias variáveis$/, 'use coeff(p, monomial) for coefficients of multivariate polynomials'],
+  [/^(.+) tem (\d+) variáveis: use gens\(R\) ou gen\(R, k\)$/, '$1 has $2 variables: use gens(R) or gen(R, k)'],
+  [/^(.+) não é variável de (.+)$/, '$1 is not a variable of $2'],
+  [/^(.+) não é a variável de (.+)$/, '$1 is not the variable of $2'],
+  [/^gen\(R, k\) requer 1 ≤ k ≤ (\d+)$/, 'gen(R, k) requires 1 ≤ k ≤ $1'],
+  [/^(.+) deve ser um polinômio em uma variável \(usa (.+)\)$/, (_, x, v) => `${w(x)} must be a univariate polynomial (uses ${v})`],
+  [/^esperava uma variável, como x \(recebeu (.+)\)$/, 'expected a variable, such as x (got $1)'],
+  [/^coeff\(p, m\): m deve ser um monômio, como x\^2\*y$/, 'coeff(p, m): m must be a monomial, such as x^2*y'],
+  [/^coeff\(p, m\) com m monômio \(como x\^2\*y\) ou coeff\(p, x, k\)$/, 'coeff(p, m) with m a monomial (such as x^2*y) or coeff(p, x, k)'],
+  [/^o polinômio zero não tem termo líder$/, 'the zero polynomial has no leading term'],
+  [/^o polinômio zero não tem coeficiente líder$/, 'the zero polynomial has no leading coefficient'],
+  [/^indique a variável: (.+)$/, 'specify the variable: $1'],
+  [/^use subs\(p, x = valor, \.\.\.\) ou subs\(p, x, valor\)$/, 'use subs(p, x = value, ...) or subs(p, x, value)'],
+  [/^(\w+_mpoly) requer um polinômio de (.+)\[x, y, \.\.\.\] como argumento$/, '$1 requires a polynomial of $2[x, y, ...] as argument'],
+  [/^(.+) requer um polinômio em várias variáveis como argumento$/, '$1 requires a multivariate polynomial as argument'],
+  [/^avaliação grande demais$/, 'evaluation too large'],
+  [/^(fatoração|gcd|resultante|discriminante) falhou$/, (_, x) => `${{ 'fatoração': 'factorization', resultante: 'resultant', discriminante: 'discriminant' }[x] ?? x} failed`],
   [/^divisão por zero$/, 'division by zero'],
   [/^(.+) espera (\d+) argumentos?, recebeu (\d+)$/, (_, f, n, m) => `${w(f)} expects ${n} argument${n === '1' ? '' : 's'}, got ${m}`],
   [/^(.+) espera mais argumentos: (.+)$/, '$1 expects more arguments: $2'],
@@ -257,6 +296,7 @@ const RULES = [
   [/^(.+) espera (.+)$/, (_, f, x) => `${f} expects ${x
     .replace('um anel de polinômios ou de matrizes', 'a polynomial or matrix ring')
     .replace('um anel de polinômios ou corpo finito', 'a polynomial ring or finite field')
+    .replace('um polinômio ou anel de polinômios', 'a polynomial or polynomial ring')
     .replace('elemento de Z/nZ, GF(q) ou polinômio/matriz sobre Z/nZ', 'an element of Z/nZ, GF(q) or a polynomial/matrix over Z/nZ')
     .replace('elemento de GF(q)', 'an element of GF(q)')
     .replace('um corpo finito, Z/nZ ou elemento', 'a finite field, Z/nZ or element')
