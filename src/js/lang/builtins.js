@@ -679,7 +679,17 @@ export function makeGlobals() {
     }
     return CC.op('acb_lambertw', CC.coerce(elem(x)), k === undefined ? int(0) : zz(k));
   }, 'lambertw(x) ou lambertw(x, k): função W de Lambert (ramo k)');
-  def('gammainc', 2, ([s, x]) => realOrComplex2('arb_gamma_upper', 'acb_gamma_upper')(s, x), 'gammainc(s, x): Γ(s, x) incompleta superior');
+  def('gammainc', 2, ([s, x], kw) => {
+    const reg = kw.regularized === true ? 1 : 0;
+    const which = kw.lower === true ? 'lower' : 'upper';
+    elem(s);
+    elem(x);
+    if (isRealArg(s) && isRealArg(x)) {
+      const r = RR.op(`arb_gammainc_${which}`, RR.coerce(s), RR.coerce(x), reg);
+      if (bool(RR.op('arb_is_finite', r))) return r;
+    }
+    return realish(CC.op(`acb_gammainc_${which}`, CC.coerce(s), CC.coerce(x), reg), [s, x]);
+  }, 'gammainc(s, x, lower=false, regularized=false): Γ(s, x) incompleta (superior ou inferior)');
   def('hyp2f1', 4, ([a, b, c, z]) => CC.op('acb_hyp2f1', ...[a, b, c, z].map((v) => CC.coerce(elem(v)))), 'hyp2f1(a, b, c, z): função hipergeométrica ₂F₁');
   def('kleinj', 1, ([t]) => CC.op('acb_modular_j', CC.coerce(elem(t))), 'kleinj(τ): invariante j');
   def('dedekindeta', 1, ([t]) => CC.op('acb_modular_eta', CC.coerce(elem(t))), 'dedekindeta(τ): η de Dedekind');
@@ -689,6 +699,95 @@ export function makeGlobals() {
   def('ellipe', 1, ([m]) => CC.op('acb_elliptic_e', CC.coerce(elem(m))), 'ellipe(m): integral elíptica completa E(m)');
   def('weierstrassp', 2, ([z, t]) => CC.op('acb_elliptic_p', CC.coerce(elem(z)), CC.coerce(elem(t))), 'weierstrassp(z, τ): ℘ de Weierstrass');
   def('barnesg', 1, ([x]) => CC.op('acb_barnes_g', CC.coerce(elem(x))), 'barnesg(z): função G de Barnes');
+  // ------------------------------------------------- mais funções especiais
+  // Funções complexas; com argumentos reais e parte imaginária do resultado
+  // exatamente nula, devolvem um real.
+  const isRealArg = (x) => x instanceof Elem && (x.ring === ZZ || x.ring === QQ || x.ring === RR);
+  const realish = (r, args) => (args.every(isRealArg) && bool(CC.op('acb_is_real', r)) ? CC.re(r) : r);
+  const cc = (x) => CC.coerce(elem(x));
+  const cfun = (name, n, doc) => def(name.split(':')[0], n, (args) => realish(CC.op(name.split(':')[1], ...args.map(cc)), args), doc);
+  cfun('polygamma:acb_polygamma', 2, 'polygamma(m, z) = ψ⁽ᵐ⁾(z)');
+  cfun('lerchphi:acb_lerch_phi', 3, 'lerchphi(z, s, a) = Φ(z, s, a) de Lerch');
+  cfun('hardyz:acb_hardy_z', 1, 'hardyz(t) = Z(t) de Riemann–Siegel');
+  cfun('hardytheta:acb_hardy_theta', 1, 'hardytheta(t) = θ(t) de Riemann–Siegel');
+  def('stieltjes', null, ([n, a]) => {
+    if (ZZ.sgn(zz(n)) < 0) fail('stieltjes(n) requer n ≥ 0');
+    return realish(CC.op('acb_stieltjes', zz(n), cc(a ?? int(1))), [a ?? int(1)]);
+  }, 'stieltjes(n, a=1): constante de Stieltjes γₙ(a)');
+  def('sphericalharmonic', 4, ([n, m, t, f]) => {
+    const nn = toInt(n, 'n'), mm = toInt(m, 'm');
+    if (nn < 0 || Math.abs(mm) > nn) fail('sphericalharmonic(n, m, θ, φ) requer n ≥ 0 e |m| ≤ n');
+    return CC.op('acb_spherical_y', nn, mm, cc(t), cc(f));
+  }, 'sphericalharmonic(n, m, θ, φ) = Yₙᵐ(θ, φ)');
+  def('hyp1f1', 3, ([a, b, z], kw) => realish(CC.op('acb_hyp1f1', cc(a), cc(b), cc(z), kw.regularized === true ? 1 : 0), [a, b, z]),
+    'hyp1f1(a, b, z, regularized=false): ₁F₁ de Kummer (M)');
+  def('hypu', 3, ([a, b, z]) => realish(CC.op('acb_hypu', cc(a), cc(b), cc(z)), [a, b, z]), 'hypu(a, b, z): U de Tricomi');
+  def('hyp0f1', 2, ([a, z], kw) => realish(CC.op('acb_hyp0f1', cc(a), cc(z), kw.regularized === true ? 1 : 0), [a, z]),
+    'hyp0f1(a, z, regularized=false): ₀F₁');
+  def('hypergeom', 3, ([as, bs, z], kw) => {
+    const A = iterable(as).map(cc), B = iterable(bs).map(cc);
+    const F = flint();
+    const pa = F.M._malloc(4 * Math.max(1, A.length)), pb = F.M._malloc(4 * Math.max(1, B.length));
+    try {
+      A.forEach((x, i) => { F.M.HEAPU32[(pa >> 2) + i] = x.ptr; });
+      B.forEach((x, i) => { F.M.HEAPU32[(pb >> 2) + i] = x.ptr; });
+      const r = CC.wrap(F.raw('acb_pfq', pa, A.length, pb, B.length, cc(z).ptr, kw.regularized === true ? 1 : 0, F.prec));
+      return realish(r, [...iterable(as), ...iterable(bs), z]);
+    } finally {
+      F.M._free(pa);
+      F.M._free(pb);
+    }
+  }, 'hypergeom([a₁, ...], [b₁, ...], z, regularized=false): ₚFq geral');
+  def('ellipf', 2, ([phi, m]) => realish(CC.op('acb_elliptic_f', cc(phi), cc(m)), [phi, m]), 'ellipf(φ, m) = F(φ | m)');
+  def('ellippi', null, ([n, a, b]) => {
+    // Completa como incompleta em φ = π/2 (a rotina completa deixa um resto imaginário).
+    if (b === undefined) {
+      const r = CC.op('acb_elliptic_pi_inc', cc(n), CC.coerce(div(RR.op('arb_const_pi'), int(2))), cc(a));
+      return realish(bool(CC.op('acb_is_finite', r)) ? r : CC.op('acb_elliptic_pi', cc(n), cc(a)), [n, a]);
+    }
+    return realish(CC.op('acb_elliptic_pi_inc', cc(n), cc(a), cc(b)), [n, a, b]);
+  }, 'ellippi(n, m) = Π(n | m); ellippi(n, φ, m) = Π(n; φ | m)');
+  cfun('carlsonrf:acb_carlson_rf', 3, 'carlsonrf(x, y, z) = R_F de Carlson');
+  cfun('carlsonrg:acb_carlson_rg', 3, 'carlsonrg(x, y, z) = R_G de Carlson');
+  cfun('carlsonrj:acb_carlson_rj', 4, 'carlsonrj(x, y, z, p) = R_J de Carlson');
+  def('weierstrasszeta', 2, ([z, t]) => CC.op('acb_elliptic_zeta', cc(z), cc(t)), 'weierstrasszeta(z, τ): ζ de Weierstrass');
+  def('weierstrasssigma', 2, ([z, t]) => CC.op('acb_elliptic_sigma', cc(z), cc(t)), 'weierstrasssigma(z, τ): σ de Weierstrass');
+  def('jacobitheta', 3, ([j, z, t]) => {
+    const k = toInt(j, 'j');
+    if (k < 1 || k > 4) fail('jacobitheta(j, z, τ) requer j em 1..4');
+    return CC.op('acb_theta', k, cc(z), cc(t));
+  }, 'jacobitheta(j, z, τ) = θⱼ(z, τ), j = 1..4');
+  const fresnel = (which) => ([x]) => {
+    if (isRealArg(x)) return RR.op('arb_fresnel', which, RR.coerce(x));
+    return CC.op('acb_fresnel', which, cc(x));
+  };
+  def('fresnels', 1, fresnel(0), 'fresnels(x) = ∫₀ˣ sin(πt²/2) dt');
+  def('fresnelc', 1, fresnel(1), 'fresnelc(x) = ∫₀ˣ cos(πt²/2) dt');
+  def('expint', 2, ([n, z]) => realish(CC.op('acb_expint', cc(n), cc(z)), [n, z]), 'expint(s, z) = Eₛ(z)');
+  const realOnly = (name, op) => def(name, 1, ([x]) => {
+    if (!isRealArg(x)) fail(`${name} requer argumento real`);
+    const r = RR.op(op, RR.coerce(x));
+    if (!bool(RR.op('arb_is_finite', r))) fail(`${name}: argumento fora do domínio`);
+    return r;
+  });
+  realOnly('erfinv', 'arb_erfinv');
+  realOnly('erfcinv', 'arb_erfcinv');
+  DOCS.set('erfinv', 'erfinv(x): inversa de erf em (−1, 1)');
+  DOCS.set('erfcinv', 'erfcinv(x): inversa de erfc em (0, 2)');
+  def('betainc', 3, ([a, b, x], kw) => {
+    const reg = kw.regularized === true ? 1 : 0;
+    if ([a, b, x].every(isRealArg)) {
+      const r = RR.op('arb_betainc', RR.coerce(a), RR.coerce(b), RR.coerce(x), reg);
+      if (bool(RR.op('arb_is_finite', r))) return r;
+    }
+    return realish(CC.op('acb_betainc', cc(a), cc(b), cc(x), reg), [a, b, x]);
+  }, 'betainc(a, b, x, regularized=false) = B(x; a, b) incompleta');
+  def('coulombf', 3, ([l, eta, z]) => realish(CC.op('acb_coulomb', 0, cc(l), cc(eta), cc(z)), [l, eta, z]), 'coulombf(ℓ, η, z): função de Coulomb regular F');
+  def('coulombg', 3, ([l, eta, z]) => realish(CC.op('acb_coulomb', 1, cc(l), cc(eta), cc(z)), [l, eta, z]), 'coulombg(ℓ, η, z): função de Coulomb irregular G');
+  // E(m) completa; E(φ, m) incompleta.
+  const oldEllipe = env.lookup('ellipe');
+  def('ellipe', null, ([a, b]) => (b === undefined ? oldEllipe.impl([a]) : realish(CC.op('acb_elliptic_e_inc', cc(a), cc(b)), [a, b])),
+    'ellipe(m) = E(m) completa; ellipe(φ, m) = E(φ | m) incompleta');
   def('re', 1, ([z]) => vec((z) => (z.ring === CC ? CC.re(z) : z))(z), 're(z): parte real');
   def('im', 1, ([z]) => vec((z) => (z.ring === CC ? CC.im(z) : RR.zero()))(z), 'im(z): parte imaginária');
   def('conj', 1, ([z]) => vec((z) => (z.ring === CC ? CC.op('acb_conj', z) : z))(z), 'conj(z): conjugado');
@@ -1024,6 +1123,55 @@ export function makeGlobals() {
   for (const [n, d] of [['cyclotomic', 'Φ_n(x): polinômio ciclotômico'], ['chebyshevt', 'T_n(x)'], ['chebyshevu', 'U_n(x)'], ['hermiteh', 'H_n(x) de Hermite'], ['swinnertondyer', 'polinômio de Swinnerton-Dyer'], ['cosminpoly', 'polinômio mínimo de cos(2π/n)'], ['legendrep', 'P_n(x) de Legendre']]) {
     DOCS.set(n, `${n}(n, var="x"): ${d}`);
   }
+  // Polinômios clássicos: só n dá o polinômio; com ponto, o valor (grau complexo
+  // permitido); se o ponto é um polinômio, compõe.
+  const orthogonal = (name, nparams, op, polyOf, doc) => {
+    const old = env.lookup(name);
+    def(name, null, (args, kw) => {
+      if (args.length === 1 + nparams && polyOf) return polyOf(args, kw, old);
+      if (args.length !== 2 + nparams) fail(`${name} espera ${1 + nparams} ou ${2 + nparams} argumentos`);
+      const z = args[args.length - 1];
+      if (isPoly(z) && polyOf) return evalPoly(polyOf(args.slice(0, -1), {}, old), z);
+      return realish(CC.op(op, ...args.map(cc)), args);
+    }, doc);
+  };
+  const oldPoly = (args, kw, old) => old.impl(args, kw);
+  orthogonal('chebyshevt', 0, 'acb_chebyshev_t', oldPoly, 'chebyshevt(n): polinômio Tₙ(x); chebyshevt(n, z): valor (n complexo)');
+  orthogonal('chebyshevu', 0, 'acb_chebyshev_u', oldPoly, 'chebyshevu(n): polinômio Uₙ(x); chebyshevu(n, z): valor');
+  orthogonal('hermiteh', 0, 'acb_hermite_h', oldPoly, 'hermiteh(n): polinômio Hₙ(x); hermiteh(n, z): valor');
+  // legendrep(n), legendrep(n, z), legendrep(n, m, z) (associada).
+  const oldLegendre = env.lookup('legendrep');
+  def('legendrep', null, (args, kw) => {
+    if (args.length === 1) return oldLegendre.impl(args, kw);
+    const [n, m, z] = args.length === 2 ? [args[0], int(0), args[1]] : args;
+    if (args.length === 2 && isPoly(z)) return evalPoly(oldLegendre.impl([n], {}), z);
+    return realish(CC.op('acb_legendre_p', cc(n), cc(m), cc(z)), [n, m, z]);
+  }, 'legendrep(n): polinômio Pₙ(x); legendrep(n, z) e legendrep(n, m, z): Pₙ(z) e Pₙᵐ(z)');
+  def('legendreq', null, ([n, a, b]) => {
+    const [m, z] = b === undefined ? [int(0), a] : [a, b];
+    if (z === undefined) fail('legendreq espera 2 ou 3 argumentos');
+    return realish(CC.op('acb_legendre_q', cc(n), cc(m), cc(z)), [n, m, z]);
+  }, 'legendreq(n, z), legendreq(n, m, z): função de Legendre de segunda espécie');
+  def('laguerrel', null, (args, kw) => {
+    if (args.length === 1) {
+      const p = Poly(QQ, 'x').op('fmpq_poly_laguerre_l', ui(args[0], 'n'));
+      return kw.var ? coerce(p, Poly(QQ, String(kw.var))) : p;
+    }
+    const [n, a, z] = args.length === 2 ? [args[0], int(0), args[1]] : args;
+    if (args.length === 2 && isPoly(z)) return evalPoly(env.lookup('laguerrel').impl([n], {}), z);
+    return realish(CC.op('acb_laguerre_l', cc(n), cc(a), cc(z)), [n, a, z]);
+  }, 'laguerrel(n): polinômio Lₙ(x); laguerrel(n, z), laguerrel(n, α, z): Lₙ⁽ᵅ⁾(z)');
+  def('gegenbauerc', null, (args, kw) => {
+    if (args.length === 2) {
+      const p = Poly(QQ, 'x').op('fmpq_poly_gegenbauer_c', ui(args[0], 'n'), coerce(elem(args[1]), QQ));
+      return kw.var ? coerce(p, Poly(QQ, String(kw.var))) : p;
+    }
+    if (args.length !== 3) fail('gegenbauerc espera 2 ou 3 argumentos');
+    const [n, a, z] = args;
+    if (isPoly(z)) return evalPoly(env.lookup('gegenbauerc').impl([n, a], {}), z);
+    return realish(CC.op('acb_gegenbauer_c', cc(n), cc(a), cc(z)), args);
+  }, 'gegenbauerc(n, α): polinômio Cₙ⁽ᵅ⁾(x) (α racional); gegenbauerc(n, α, z): valor');
+  def('jacobip', 4, (args) => realish(CC.op('acb_jacobi_p', ...args.map(cc)), args), 'jacobip(n, a, b, z) = Pₙ⁽ᵃ,ᵇ⁾(z) de Jacobi');
   def('poly', null, ([cs, R]) => {
     const items = iterable(cs);
     let P = R;

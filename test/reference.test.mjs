@@ -53,7 +53,12 @@ test('funções FLINT citadas existem na FLINT exposta ou são conhecidas', () =
     'fmpz_mpoly_factor', 'fmpq_mpoly_factor', 'fmpq_mpoly_evaluate_all_fmpq', 'fmpq_mpoly_divrem_ideal',
     'fmpz_is_perfect_power', 'fmpz_mod_discrete_log_pohlig_hellman_run', 'fmpq_poly_xgcd', 'fmpz_mod_poly_xgcd',
     'fq_default_poly_xgcd', 'fmpz_poly_factor_squarefree', 'fmpz_mod_poly_factor_squarefree',
-    'fq_default_poly_factor_squarefree', 'fmpz_powm', 'arb_floor',
+    'fq_default_poly_factor_squarefree', 'fmpz_powm', 'arb_floor', 'acb_elliptic_rf', 'acb_elliptic_rg',
+    'acb_elliptic_rj', 'arb_hypgeom_beta_lower', 'acb_hypgeom_beta_lower', 'arb_hypgeom_gamma_lower', 'acb_hypgeom_gamma_lower',
+    'arb_hypgeom_gamma_upper', 'acb_hypgeom_gamma_upper', 'acb_hypgeom_m', 'acb_hypgeom_0f1', 'acb_hypgeom_pfq',
+    'acb_hypgeom_legendre_p', 'acb_hypgeom_legendre_q', 'acb_modular_theta', 'arb_hypgeom_fresnel', 'acb_hypgeom_fresnel',
+    'acb_hypgeom_coulomb', 'acb_dirichlet_hardy_z', 'acb_dirichlet_hardy_theta', 'acb_elliptic_f', 'acb_elliptic_e_inc',
+    'acb_elliptic_pi_inc',
   ]);
   const unknown = [];
   for (const e of REF.values()) for (const f of e.flint) if (!cfuncs.has(f) && !extra.has(f)) unknown.push(`${e.name}:${f}`);
@@ -102,6 +107,8 @@ const ERRORS = [
   'x = gen(QQ[x]); series(sqrt, 2 + x, 4)', 'x = gen(QQ[x]); revert(1 + x, 4)', 'x = gen(GF(5)[x]); series(exp, x, 4)',
   'interpolate([1, 2], [1])', 'interpolate([1, 1], [1, 2])', 'interpolate([[1, 2; 3, 4]], [1])', 'sqfree(gen(RR[x]))',
   'eigenvectors([1, 1; 0, 1])',
+  'stieltjes(-1)', 'sphericalharmonic(1, 2, 0, 0)', 'jacobitheta(5, 0, i)', 'erfinv(i)', 'erfinv(2)', 'legendreq(1)',
+  'gegenbauerc(1)', 'chebyshevt(1, 2, 3)',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

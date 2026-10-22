@@ -276,6 +276,47 @@ fq_order                   fmpz           fq fqctx              = h_fq_order
 fq_to_poly                 fmpz_poly      fq fqctx              = h_fq_to_poly
 fq_from_poly               fq             fmpz_poly fqctx       = h_fq_from_poly
 
+# ---------------------------------------------------------------- mais funções especiais
+acb_polygamma              acb            acb acb prec
+acb_lerch_phi              acb            acb acb acb prec      = acb_dirichlet_lerch_phi
+acb_hardy_z                acb            acb prec              = h_acb_hardy_z
+acb_hardy_theta            acb            acb prec              = h_acb_hardy_theta
+acb_stieltjes              acb            fmpz acb prec         = acb_dirichlet_stieltjes
+acb_legendre_p             acb            acb acb acb prec      = h_acb_legendre_p
+acb_legendre_q             acb            acb acb acb prec      = h_acb_legendre_q
+acb_spherical_y            acb            si si acb acb prec    = acb_hypgeom_spherical_y
+acb_hyp1f1                 acb            acb acb acb si prec   = h_acb_hyp1f1
+acb_hypu                   acb            acb acb acb prec      = acb_hypgeom_u
+acb_hyp0f1                 acb            acb acb si prec       = h_acb_hyp0f1
+acb_elliptic_f             acb            acb acb prec          = h_acb_elliptic_f
+acb_elliptic_e_inc         acb            acb acb prec          = h_acb_elliptic_e_inc
+acb_elliptic_pi            acb            acb acb prec
+acb_elliptic_pi_inc        acb            acb acb acb prec      = h_acb_elliptic_pi_inc
+acb_carlson_rf             acb            acb acb acb prec      = h_acb_carlson_rf
+acb_carlson_rg             acb            acb acb acb prec      = h_acb_carlson_rg
+acb_carlson_rj             acb            acb acb acb acb prec  = h_acb_carlson_rj
+acb_elliptic_zeta          acb            acb acb prec
+acb_elliptic_sigma         acb            acb acb prec
+acb_theta                  acb            si acb acb prec       = h_acb_theta
+arb_fresnel                arb            si arb prec           = h_arb_fresnel
+acb_fresnel                acb            si acb prec           = h_acb_fresnel
+acb_expint                 acb            acb acb prec          = acb_hypgeom_expint
+arb_erfinv                 arb            arb prec              = arb_hypgeom_erfinv
+arb_erfcinv                arb            arb prec              = arb_hypgeom_erfcinv
+arb_betainc                arb            arb arb arb si prec   = arb_hypgeom_beta_lower
+acb_betainc                acb            acb acb acb si prec   = acb_hypgeom_beta_lower
+arb_gammainc_upper         arb            arb arb si prec       = arb_hypgeom_gamma_upper
+acb_gammainc_upper         acb            acb acb si prec       = acb_hypgeom_gamma_upper
+arb_gammainc_lower         arb            arb arb si prec       = arb_hypgeom_gamma_lower
+acb_gammainc_lower         acb            acb acb si prec       = acb_hypgeom_gamma_lower
+acb_coulomb                acb            si acb acb acb prec   = h_acb_coulomb
+acb_hermite_h              acb            acb acb prec          = acb_hypgeom_hermite_h
+acb_laguerre_l             acb            acb acb acb prec      = acb_hypgeom_laguerre_l
+acb_jacobi_p               acb            acb acb acb acb prec  = acb_hypgeom_jacobi_p
+acb_gegenbauer_c           acb            acb acb acb prec      = acb_hypgeom_gegenbauer_c
+acb_chebyshev_t            acb            acb acb prec          = acb_hypgeom_chebyshev_t
+acb_chebyshev_u            acb            acb acb prec          = acb_hypgeom_chebyshev_u
+
 # ---------------------------------------------------------------- polinômios sobre ZZ
 fmpz_poly_add              fmpz_poly      fmpz_poly fmpz_poly
 fmpz_poly_sub              fmpz_poly      fmpz_poly fmpz_poly
@@ -333,6 +374,8 @@ fmpq_poly_is_squarefree    int            fmpq_poly
 fmpq_poly_make_monic       fmpq_poly      fmpq_poly
 fmpq_poly_numerator        fmpz_poly      fmpq_poly             = fmpq_poly_get_numerator
 fmpq_poly_legendre_p       fmpq_poly      ui
+fmpq_poly_laguerre_l       fmpq_poly      ui
+fmpq_poly_gegenbauer_c     fmpq_poly      ui fmpq
 fmpq_poly_inv_series         fmpq_poly      fmpq_poly si
 fmpq_poly_exp_series         fmpq_poly      fmpq_poly si
 fmpq_poly_log_series         fmpq_poly      fmpq_poly si

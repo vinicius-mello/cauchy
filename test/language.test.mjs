@@ -91,6 +91,15 @@ const cases = [
   ['x = gen(Zmod(7)[x]); roots(x^2 + 1)', '[]'],
   ['x = gen(Zmod(13)[x]); sort(roots(x^2 + 1))', '[5, 8]'],
   ['F = GF(9); y = gen(F[y]); len(roots(y^9 - y))', '9'],
+  // funções especiais (identidades conhecidas)
+  ['with digits = 20: [contains(polygamma(1, 1) - pi^2/6, 0), contains(hyp1f1(1, 2, 1) - (e - 1), 0), contains(hyp0f1(1, -1/4) - besselj(0, 1), 0)]', '[true, true, true]'],
+  ['with digits = 20: [contains(ellipf(pi/2, 1/2) - ellipk(1/2), 0), contains(ellipe(pi/2, 1/2) - ellipe(1/2), 0), contains(carlsonrg(0, 1, 1) - pi/4, 0)]', '[true, true, true]'],
+  ['with digits = 20: [contains(coulombf(0, 0, 1) - sin(1), 0), contains(coulombg(0, 0, 1) - cos(1), 0), contains(stieltjes(0) - euler, 0)]', '[true, true, true]'],
+  ['with digits = 20: [contains(hypergeom([1, 1], [2], -1/2) - 2*log(3/2), 0), contains(lerchphi(1/2, 2, 1) - 2*polylog(2, 1/2), 0), contains(expint(1, 1) + ei(-1), 0)]', '[true, true, true]'],
+  ['with digits = 20: [contains(erf(erfinv(1/3)) - 1/3, 0), contains(gammainc(2, 1) + gammainc(2, 1, lower = true) - 1, 0), contains(betainc(2, 3, 1/2, regularized = true) - 11/16, 0)]', '[true, true, true]'],
+  ['with digits = 20: [contains(chebyshevt(1/2, 1/2) - sqrt(3)/2, 0), contains(legendrep(2, 1, 1/2) + 3*sqrt(3)/4, 0), contains(fresnelc(1) - 0.779893400376822829474206413653, 0)]', '[true, true, true]'],
+  ['ring(hardyz(10)), ring(sphericalharmonic(1, 1, 1, 1)), chebyshevt(5, 1/2), hermiteh(3, 2), jacobip(2, 1, 1, 1/2)', '(RR, CC, 0.5, 40, 0.1875)'],
+  ['x = gen(QQ[x]); chebyshevt(2, x + 1), laguerrel(2), gegenbauerc(2, 1), legendrep(2, x)', '(2*x^2 + 4*x + 1, 1/2*x^2 - 2*x + 1, 4*x^2 - 1, 3/2*x^2 - 1/2)'],
   // xgcd, séries, interpolação, Sturm, sqfree
   ['x = gen(QQ[x]); xgcd(x^3 - 1, x^2 + 1)', '(1, 1/2*x - 1/2, -1/2*x^2 + 1/2*x + 1/2)'],
   ['x = gen(GF(5)[x]); xgcd(x^2 + 1, x^3 + x), xgcd(240, 46)', '((x^2 + 1, 1, 0), (2, -9, 47))'],

@@ -215,3 +215,52 @@ slong h_fmpq_mat_rank(const fmpq_mat_t a)
     fmpq_mat_clear(b);
     return r;
 }
+
+/* Funções especiais com flags fixas ou várias saídas. */
+void h_acb_hardy_z(acb_t r, const acb_t t, slong prec) { acb_dirichlet_hardy_z(r, t, NULL, NULL, 1, prec); }
+void h_acb_hardy_theta(acb_t r, const acb_t t, slong prec) { acb_dirichlet_hardy_theta(r, t, NULL, NULL, 1, prec); }
+void h_acb_legendre_p(acb_t r, const acb_t n, const acb_t m, const acb_t z, slong prec) { acb_hypgeom_legendre_p(r, n, m, z, 0, prec); }
+void h_acb_legendre_q(acb_t r, const acb_t n, const acb_t m, const acb_t z, slong prec) { acb_hypgeom_legendre_q(r, n, m, z, 0, prec); }
+void h_acb_hyp1f1(acb_t r, const acb_t a, const acb_t b, const acb_t z, slong reg, slong prec) { acb_hypgeom_m(r, a, b, z, reg, prec); }
+void h_acb_hyp0f1(acb_t r, const acb_t a, const acb_t z, slong reg, slong prec) { acb_hypgeom_0f1(r, a, z, reg, prec); }
+void h_acb_elliptic_f(acb_t r, const acb_t phi, const acb_t m, slong prec) { acb_elliptic_f(r, phi, m, 0, prec); }
+void h_acb_elliptic_e_inc(acb_t r, const acb_t phi, const acb_t m, slong prec) { acb_elliptic_e_inc(r, phi, m, 0, prec); }
+void h_acb_elliptic_pi_inc(acb_t r, const acb_t n, const acb_t phi, const acb_t m, slong prec) { acb_elliptic_pi_inc(r, n, phi, m, 0, prec); }
+void h_acb_carlson_rf(acb_t r, const acb_t x, const acb_t y, const acb_t z, slong prec) { acb_elliptic_rf(r, x, y, z, 0, prec); }
+void h_acb_carlson_rg(acb_t r, const acb_t x, const acb_t y, const acb_t z, slong prec) { acb_elliptic_rg(r, x, y, z, 0, prec); }
+void h_acb_carlson_rj(acb_t r, const acb_t x, const acb_t y, const acb_t z, const acb_t p, slong prec) { acb_elliptic_rj(r, x, y, z, p, 0, prec); }
+
+/* θ_j(z, τ), j = 1..4 */
+void h_acb_theta(acb_t r, slong j, const acb_t z, const acb_t tau, slong prec)
+{
+    acb_t t1, t2, t3, t4;
+    acb_init(t1); acb_init(t2); acb_init(t3); acb_init(t4);
+    acb_modular_theta(t1, t2, t3, t4, z, tau, prec);
+    acb_set(r, j == 1 ? t1 : j == 2 ? t2 : j == 3 ? t3 : t4);
+    acb_clear(t1); acb_clear(t2); acb_clear(t3); acb_clear(t4);
+}
+
+/* Fresnel normalizadas: which = 0 para S, 1 para C. */
+void h_arb_fresnel(arb_t r, slong which, const arb_t z, slong prec)
+{
+    arb_t o;
+    arb_init(o);
+    if (which == 0) arb_hypgeom_fresnel(r, o, z, 1, prec);
+    else arb_hypgeom_fresnel(o, r, z, 1, prec);
+    arb_clear(o);
+}
+void h_acb_fresnel(acb_t r, slong which, const acb_t z, slong prec)
+{
+    acb_t o;
+    acb_init(o);
+    if (which == 0) acb_hypgeom_fresnel(r, o, z, 1, prec);
+    else acb_hypgeom_fresnel(o, r, z, 1, prec);
+    acb_clear(o);
+}
+
+/* Funções de Coulomb: which = 0 para F, 1 para G. */
+void h_acb_coulomb(acb_t r, slong which, const acb_t l, const acb_t eta, const acb_t z, slong prec)
+{
+    if (which == 0) acb_hypgeom_coulomb(r, NULL, NULL, NULL, l, eta, z, prec);
+    else acb_hypgeom_coulomb(NULL, r, NULL, NULL, l, eta, z, prec);
+}

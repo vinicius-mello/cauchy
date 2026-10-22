@@ -1094,3 +1094,17 @@ EMSCRIPTEN_KEEPALIVE intptr_t *cy_acb_mat_eigvec(const acb_mat_t A, slong prec)
     _acb_vec_clear(E, n);
     return v;
 }
+
+/* ₚFq(a; b; z): as e bs são vetores de ponteiros para acb. */
+EMSCRIPTEN_KEEPALIVE void *cy_acb_pfq(acb_struct * const *as, slong p, acb_struct * const *bs, slong q,
+                                      const acb_t z, int regularized, slong prec)
+{
+    acb_ptr a = _acb_vec_init(p), b = _acb_vec_init(q);
+    for (slong i = 0; i < p; i++) acb_set(a + i, as[i]);
+    for (slong i = 0; i < q; i++) acb_set(b + i, bs[i]);
+    acb_struct *r = cy_new_acb(NULL);
+    acb_hypgeom_pfq(r, a, p, b, q, z, regularized, prec);
+    _acb_vec_clear(a, p);
+    _acb_vec_clear(b, q);
+    return r;
+}
