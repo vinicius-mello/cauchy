@@ -323,8 +323,20 @@ export function makeGlobals() {
   };
   def('xgcd', 2, ([a, b]) => {
     const F = flint();
-    return new Tuple(F.vec(F.raw('fmpz_xgcd', zz(a).ptr, zz(b).ptr)).map((p) => ZZ.wrap(p)));
-  }, 'xgcd(a, b) = (g, s, t) com g = s·a + t·b');
+    if (isPoly(a) || isPoly(b)) {
+      let R = commonRing(elem(a).ring, elem(b).ring);
+      if (R instanceof MPolyRing) {
+        a = poly(coerce(a, R), 'a');
+        b = poly(coerce(b, R), 'b');
+        R = commonRing(a.ring, b.ring);
+      }
+      if (R.base === ZZ) R = Poly(QQ, R.v);
+      if (R.base instanceof ZmodRing && !R.base.prime) fail('xgcd em Z/nZ[x] requer n primo');
+      if (!['fmpq_poly', 'zmod_poly', 'fq_poly'].includes(R.tag)) fail(`xgcd não suportado em ${R}`);
+      return new Tuple(F.vec(F.raw(`xgcd_${R.tag}`, coerce(a, R).ptr, coerce(b, R).ptr, R.ctx)).map((q) => R.wrap(q)));
+    }
+    return new Tuple(F.vec(F.raw('fmpz_xgcd', zz(a).ptr, zz(b).ptr)).map((q) => ZZ.wrap(q)));
+  }, 'xgcd(a, b) = (g, s, t) com g = s·a + t·b (inteiros ou polinômios sobre um corpo)');
   def('powmod', 3, ([a, e, m]) => {
     if (ZZ.sgn(zz(e)) < 0) return ZZ.op('fmpz_powm', ZZ.op('fmpz_invmod', zz(a), zz(m)), ZZ.neg(e), zz(m));
     return ZZ.op('fmpz_powm', zz(a), zz(e), zz(m));
@@ -370,6 +382,119 @@ export function makeGlobals() {
     if (kw.sign === true && compare(mul(x, int(2)), M, '>')) y = sub(x, M);
     return kw.full === true ? new Tuple([y, M]) : y;
   }, 'crt([r₁, ...], [m₁, ...], sign=false, full=false): x com x ≡ rᵢ (mod mᵢ); crt(a, b, ...) para elementos de Zmod');
+  def('kronecker', 2, ([a, n]) => int(ZZ.op('fmpz_kronecker', zz(a), zz(n))), 'kronecker(a, n): símbolo de Kronecker');
+  def('ratrecon', null, ([a, m]) => {
+    if (m === undefined) {
+      if (!(a instanceof Elem && a.ring instanceof ZmodRing)) fail('use ratrecon(a, m) ou ratrecon(x) com x em Zmod(m)');
+      m = a.ring.n;
+      a = a.ring.lift(a);
+    }
+    m = zz(m, 'módulo');
+    if (ZZ.cmp(m, int(1)) <= 0) fail('ratrecon: o módulo deve ser maior que 1');
+    return QQ.op('fmpq_reconstruct', ZZ.op('fmpz_fdiv_r', zz(a), m), m);
+  }, 'ratrecon(a, m): fração n/d com n ≡ a·d (mod m) e |n|, d ≤ √(m/2)');
+  // Termos da fração contínua; para bolas, para quando a precisão não decide o piso.
+  const cfrac = (x, n) => {
+    elem(x);
+    if (x.ring !== ZZ && x.ring !== QQ && x.ring !== RR) fail('contfrac espera um número real');
+    const limit = n === undefined ? (x.ring === RR ? 100000 : Infinity) : ui(n, 'n');
+    const out = [];
+    let y = x;
+    while (out.length < limit) {
+      let a;
+      try {
+        a = floor(y);
+      } catch (e) {
+        if (y.ring === RR) break;
+        throw e;
+      }
+      out.push(a);
+      const f = sub(y, a);
+      if (y.ring !== RR ? isZero(f) : RR.op('arb_is_zero', f)) break;
+      y = inv(f);
+    }
+    return out;
+  };
+  def('contfrac', null, ([x, n]) => cfrac(x, n), 'contfrac(x, n): termos [a₀, a₁, ...] da fração contínua (todos, para racionais)');
+  def('fromcontfrac', 1, ([as]) => {
+    const xs = iterable(as).map((a) => elem(a));
+    if (!xs.length) fail('fromcontfrac espera uma lista não vazia');
+    let v = xs[xs.length - 1];
+    for (let k = xs.length - 2; k >= 0; k--) v = add(xs[k], div(int(1), v));
+    return v;
+  }, 'fromcontfrac([a₀, a₁, ...]) = a₀ + 1/(a₁ + 1/(...))');
+  def('convergents', null, ([x, n]) => {
+    const as = Array.isArray(x) ? x.map((a) => elem(a)) : cfrac(x, n);
+    const out = [];
+    let [h1, h2, k1, k2] = [int(1), int(0), int(0), int(1)];
+    for (const a of as) {
+      [h1, h2] = [add(mul(a, h1), h2), h1];
+      [k1, k2] = [add(mul(a, k1), k2), k1];
+      out.push(div(h1, k1));
+    }
+    return out;
+  }, 'convergents(x, n): reduzidas da fração contínua de x (ou de uma lista de termos)');
+  // n = b^k com k máximo.
+  const perfectPower = (n) => {
+    const F = flint();
+    let b = zz(n), k = 1;
+    while (ZZ.cmp(ZZ.op('fmpz_abs', b), int(1)) > 0) {
+      const [r, e] = F.vec(F.raw('fmpz_perfect_power', b.ptr)).map((q) => ZZ.wrap(q));
+      const ek = ZZ.toSmall(e);
+      if (ek <= 1) break;
+      b = r;
+      k *= ek;
+    }
+    return [b, k];
+  };
+  def('perfectpower', 1, ([n]) => {
+    const [b, k] = perfectPower(n);
+    return new Tuple([b, int(k)]);
+  }, 'perfectpower(n) = (b, k) com n = bᵏ e k máximo');
+  def('isperfectpower', 1, ([n]) => perfectPower(n)[1] > 1 || ZZ.cmp(ZZ.op('fmpz_abs', zz(n)), int(1)) <= 0,
+    'isperfectpower(n): n = bᵏ com k ≥ 2?');
+  def('primitiveroot', 1, ([p]) => {
+    const R = p instanceof ZmodRing ? p : null;
+    if (R) p = R.n;
+    p = zz(p);
+    if (!bool(ZZ.op('fmpz_is_prime', p))) fail('primitiveroot(p) requer p primo');
+    const n = sub(p, int(1));
+    const qs = intFactor(n).map(([q]) => ZZ.op('fmpz_divexact', n, q));
+    let g = int(ZZ.cmp(p, int(2)) === 0 ? 1 : 2);
+    while (qs.some((e) => bool(ZZ.op('fmpz_is_one', ZZ.op('fmpz_powm', g, e, p))))) g = add(g, int(1));
+    return R ? R.coerce(g) : g;
+  }, 'primitiveroot(p): menor raiz primitiva módulo o primo p');
+  def('dlog', null, ([a, g, p]) => {
+    if (p === undefined) {
+      if (!(a instanceof Elem && a.ring instanceof ZmodRing && g instanceof Elem && g.ring === a.ring)) {
+        fail('use dlog(a, g, p) ou dlog(a, g) com a e g em Zmod(p)');
+      }
+      p = a.ring.n;
+      a = a.ring.lift(a);
+      g = g.ring.lift(g);
+    }
+    p = zz(p, 'módulo');
+    if (!bool(ZZ.op('fmpz_is_prime', p))) fail('dlog requer módulo primo');
+    a = ZZ.op('fmpz_fdiv_r', zz(a), p);
+    g = ZZ.op('fmpz_fdiv_r', zz(g), p);
+    if (ZZ.isZero(a) || ZZ.isZero(g)) fail('dlog: a e g devem ser não nulos módulo p');
+    const n = sub(p, int(1));
+    if (bool(ZZ.op('fmpz_is_one', n))) return int(0);
+    const F = flint();
+    let la, lg;
+    try {
+      [la, lg] = F.vec(F.raw('fmpz_dlog', a.ptr, g.ptr, p.ptr, 1e8)).map((q) => ZZ.wrap(q));
+    } catch (e) {
+      if (/Prime factor is large/.test(e.message)) fail('logaritmo discreto caro demais: p - 1 tem um fator primo grande');
+      throw e;
+    }
+    // lg·x ≡ la (mod p − 1)
+    const d = ZZ.op('fmpz_gcd', lg, n);
+    if (!ZZ.isZero(ZZ.op('fmpz_fdiv_r', la, d))) fail(`${ZZ.toStr(a)} não é potência de ${ZZ.toStr(g)} módulo ${ZZ.toStr(p)}`);
+    const m = ZZ.op('fmpz_divexact', n, d);
+    if (bool(ZZ.op('fmpz_is_one', m))) return int(0);
+    return ZZ.op('fmpz_fdiv_r', mul(ZZ.op('fmpz_divexact', la, d), ZZ.op('fmpz_invmod', ZZ.op('fmpz_divexact', lg, d), m)), m);
+  }, 'dlog(a, g, p): menor x ≥ 0 com gˣ ≡ a (mod p), p primo');
   def('factorial', 1, ([n]) => vec((n) => {
     if (n instanceof Elem && n.ring !== ZZ) return env.lookup('gamma').impl([add(n, int(1))]);
     return ZZ.op('fmpz_fac_ui', ui(n, 'n'));
@@ -459,10 +584,22 @@ export function makeGlobals() {
     return null;
   };
   const rcSqrt = realOrComplex('arb_sqrt', 'acb_sqrt');
+  // Raiz exata de polinômio quadrado perfeito sobre ZZ ou QQ: p = z/d, √p = √(z·d)/d.
+  const polySqrt = (p) => {
+    const R = p.ring;
+    if (R.base === ZZ) return R.op('fmpz_poly_sqrt', p);
+    if (R.base !== QQ) fail('sqrt de polinômio requer coeficientes em ZZ ou QQ');
+    const Z = Poly(ZZ, R.v);
+    const d = R.coeffs(p).reduce((acc, c) => ZZ.op('fmpz_lcm', acc, QQ.den(c)), int(1));
+    const z = Z.fromCoeffs(R.coeffs(R.scalarMul(p, d)).map((c) => QQ.num(c)));
+    const s = Z.op('fmpz_poly_sqrt', Z.op('fmpz_poly_scalar_mul', z, d));
+    return R.scalarMul(coerce(s, R), inv(d));
+  };
   def('sqrt', 1, ([x]) => vec((x) => {
     elem(x);
     if (x.ring instanceof ZmodRing) return x.ring.op('zmod_sqrt', x);
     if (x.ring instanceof FiniteField) return x.ring.op('fq_sqrt', x);
+    if (x.ring instanceof PolyRing || x.ring instanceof MPolyRing) return polySqrt(poly(x));
     return sqrtExact(x) ?? rcSqrt(x);
   })(x), 'sqrt(x): raiz quadrada (exata quando possível)');
   def('cbrt', 1, ([x]) => {
@@ -898,6 +1035,107 @@ export function makeGlobals() {
     return P.fromCoeffs(items);
   }, 'poly([c0, c1, ...], R): polinômio a partir de coeficientes');
   def('evalpoly', 2, ([p, x]) => evalPoly(poly(p), x), 'evalpoly(p, x) = p(x)');
+  // Séries truncadas mod xⁿ sobre QQ (fmpq_poly_*_series).
+  const SERIES = ['inv', 'exp', 'log', 'sqrt', 'invsqrt', 'sin', 'cos', 'tan', 'asin', 'atan', 'sinh', 'cosh', 'tanh', 'asinh', 'atanh'];
+  const qpoly = (p, what) => {
+    p = poly(p, what);
+    if (p.ring.base === ZZ) p = coerce(p, Poly(QQ, p.ring.v));
+    if (p.ring.base !== QQ) fail(`${what} requer polinômio sobre ZZ ou QQ`);
+    return p;
+  };
+  def('series', 3, ([f, p, n]) => {
+    const name = typeof f === 'string' ? f : f instanceof Func ? f.name : null;
+    if (!SERIES.includes(name)) fail(`series: função não suportada (use ${SERIES.join(', ')})`);
+    p = qpoly(p, 'series');
+    const R = p.ring;
+    const k = ui(n, 'n');
+    const c0 = R.coeff(p, 0);
+    if (name === 'inv' && isZero(c0)) fail('series(inv, p, n) requer p(0) ≠ 0');
+    if (name === 'sqrt' || name === 'invsqrt') {
+      // p = c·q com q(0) = 1; √c precisa ser racional.
+      if (isZero(c0)) fail(`series(${name}, p, n) requer p(0) ≠ 0`);
+      const r = sqrtExact(c0);
+      if (r === null) fail(`series(${name}, p, n) requer p(0) quadrado de racional`);
+      const q = R.op(`fmpq_poly_${name}_series`, R.scalarMul(p, inv(c0)), k);
+      return R.scalarMul(q, name === 'sqrt' ? r : inv(r));
+    }
+    if (name === 'log' && !equal(c0, int(1))) fail('series(log, p, n) requer p(0) = 1');
+    if (!['inv', 'log'].includes(name) && !isZero(c0)) fail(`series(${name}, p, n) requer p(0) = 0`);
+    return R.op(`fmpq_poly_${name}_series`, p, k);
+  }, 'series(f, p, n): f(p) mod xⁿ para f em inv, exp, log, sqrt, sin, cos, tan, atan, ...');
+  def('revert', 2, ([p, n]) => {
+    p = qpoly(p, 'revert');
+    const R = p.ring;
+    if (!isZero(R.coeff(p, 0)) || isZero(R.coeff(p, 1))) fail('revert(p, n) requer p(0) = 0 e p\'(0) ≠ 0');
+    return R.op('fmpq_poly_revert_series', p, ui(n, 'n'));
+  }, 'revert(p, n): série inversa q com p(q(x)) = x mod xⁿ');
+  def('interpolate', null, ([xs, ys], kw) => {
+    xs = iterable(xs).map((x) => elem(x));
+    ys = iterable(ys).map((y) => elem(y));
+    if (xs.length !== ys.length || !xs.length) fail('interpolate: listas de pontos e valores com tamanhos diferentes ou vazias');
+    let B = QQ;
+    for (const v of [...xs, ...ys]) B = commonRing(B, v.ring);
+    if (!isScalarRing(B)) fail('interpolate espera pontos e valores numéricos');
+    for (let i = 0; i < xs.length; i++) {
+      for (let j = 0; j < i; j++) {
+        let same = false;
+        try { same = equal(xs[i], xs[j]); } catch { /* bolas sobrepostas */ }
+        if (same) fail('interpolate: pontos repetidos');
+      }
+    }
+    // Diferenças divididas de Newton e forma de Horner.
+    const c = ys.map((y) => coerce(y, B));
+    for (let j = 1; j < xs.length; j++) {
+      for (let i = xs.length - 1; i >= j; i--) c[i] = div(sub(c[i], c[i - 1]), sub(xs[i], xs[i - j]));
+    }
+    const P = Poly(B, kw.var === undefined ? 'x' : String(kw.var));
+    const X = P.gen();
+    let r = coerce(c[c.length - 1], P);
+    for (let i = c.length - 2; i >= 0; i--) r = add(mul(r, sub(X, xs[i])), c[i]);
+    return coerce(r, P);
+  }, 'interpolate([x₀, ...], [y₀, ...], var="x"): polinômio de menor grau com p(xᵢ) = yᵢ');
+  def('countrealroots', 1, ([p]) => {
+    p = qpoly(p, 'countrealroots');
+    if (isZero(p)) fail('o polinômio zero tem todas as raízes');
+    const Z = Poly(ZZ, p.ring.v);
+    let z = Z.op('fmpz_poly_primitive_part', p.ring.opTo(Z, 'fmpq_poly_numerator', p));
+    if (Z.degree(z) < 1) return int(0);
+    z = Z.op('fmpz_poly_divides', z, Z.op('fmpz_poly_gcd', z, Z.op('fmpz_poly_derivative', z)));
+    let count = 0;
+    if (ZZ.isZero(Z.coeff(z, 0))) {
+      count = 1;
+      z = Z.fromCoeffs(Z.coeffs(z).slice(1));
+    }
+    const d = Z.degree(z);
+    return int(count + (d < 1 ? 0 : d === 1 ? 1 : Z.op('fmpz_poly_num_real_roots', z)));
+  }, 'countrealroots(p): número de raízes reais distintas (sequência de Sturm)');
+  def('sqfree', 1, ([p]) => {
+    p = poly(p);
+    const R = p.ring;
+    const F = flint();
+    const out = (v, unitRing, ring, conv = (q) => q) => {
+      const list = [];
+      for (let i = 1; i < v.length; i += 2) list.push([conv(ring.wrap(v[i])), ZZ.wrap(v[i + 1])]);
+      return [unitRing.wrap(v[0]), list];
+    };
+    let unit, list;
+    switch (R.tag) {
+      case 'fmpz_poly': [unit, list] = out(F.vec(F.raw('sqfree_fmpz_poly', p.ptr)), ZZ, R); break;
+      case 'fmpq_poly': {
+        const Z = Poly(ZZ, R.v);
+        const d = R.coeffs(p).reduce((acc, c) => ZZ.op('fmpz_lcm', acc, QQ.den(c)), int(1));
+        const z = Z.fromCoeffs(R.coeffs(R.scalarMul(p, d)).map((c) => QQ.num(c)));
+        [unit, list] = out(F.vec(F.raw('sqfree_fmpz_poly', z.ptr)), ZZ, Z, (q) => coerce(q, R));
+        unit = div(unit, d);
+        break;
+      }
+      case 'zmod_poly': case 'fq_poly':
+        [unit, list] = out(F.vec(F.raw(`sqfree_${R.tag}`, p.ptr, R.ctx)), R.base, R);
+        break;
+      default: fail(`sqfree não suportado em ${R}`);
+    }
+    return factored(list, unit);
+  }, 'sqfree(p): fatoração livre de quadrados ∏ fᵢ^eᵢ (fᵢ livres de quadrados e coprimos)');
   def('subs', null, ([p, a, v], kw) => {
     const assign = new Map(Object.entries(kw));
     if (a !== undefined) {
@@ -1043,6 +1281,36 @@ export function makeGlobals() {
     if (R.base !== CC) { R = Mat(RR); m = coerce(m, R); }
     return R.op(`${R.tag}_exp`, m);
   }, 'expm(A): exponencial de matriz');
+  def('kron', 2, ([a, b]) => {
+    const S = commonRing(mat(a).ring, mat(b).ring);
+    const A = S.rows(coerce(a, S)), B = S.rows(coerce(b, S));
+    const rows = [];
+    for (const ra of A) for (const rb of B) rows.push(ra.flatMap((x) => rb.map((y) => mul(x, y))));
+    return S.fromRows(rows);
+  }, 'kron(A, B): produto de Kronecker');
+  def('eigenvectors', 1, ([m]) => {
+    const F = flint();
+    const A = coerce(square(mat(m)), Mat(CC));
+    const v = F.vec(F.raw('acb_mat_eigvec', A.ptr, F.prec));
+    const n = v.length - 1;
+    const R = Mat(CC).rows(Mat(CC).wrap(v[n]));
+    const vals = v.slice(0, n).map((p) => CC.wrap(p));
+    // Matriz real: um autovalor certificado cuja bola conjugada só encontra a
+    // própria bola é igual ao seu conjugado, logo real (e o autovetor normalizado também).
+    const realInput = [ZZ, QQ, RR].includes(m.ring.base);
+    const isReal = (k) => realInput && bool(RR.op('arb_contains_zero', CC.im(vals[k]))) &&
+      vals.every((w, j) => j === k || !bool(CC.op('acb_overlaps', CC.op('acb_conj', vals[k]), w)));
+    return vals.map((l, j) => {
+      // Normaliza para que a maior componente (em módulo) seja exatamente 1.
+      const col = R.map((r) => r[j]);
+      let big = 0;
+      col.forEach((c, i) => { if (RR.mid(CC.op('acb_abs', c)) > RR.mid(CC.op('acb_abs', col[big]))) big = i; });
+      const s = inv(col[big]);
+      const w = col.map((c, i) => (i === big ? CC.one() : mul(c, s)));
+      if (isReal(j)) return new Tuple([CC.re(l), Mat(RR).fromRows(w.map((c) => [CC.re(c)]))]);
+      return new Tuple([l, Mat(CC).fromRows(w.map((c) => [c]))]);
+    });
+  }, 'eigenvectors(A): lista de pares (λ, v) com A·v = λ·v (autovalores simples)');
   def('dot', 2, ([a, b]) => {
     const x = iterable(a), y = iterable(b);
     if (x.length !== y.length) fail('vetores de tamanhos diferentes');

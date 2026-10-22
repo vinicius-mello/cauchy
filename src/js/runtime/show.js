@@ -178,7 +178,7 @@ export function toText(d) {
     case 'cplx': {
       if (d.imZero) return ballText(d.re);
       const im = ballText(d.im);
-      if (d.re.mid === '0' && !d.re.rad) return d.im.mid === '1' && !d.im.rad ? 'i' : `${im}·i`;
+      if (d.re.mid === '0' && !d.re.rad) return !d.im.rad && d.im.mid === '1' ? 'i' : !d.im.rad && d.im.mid === '-1' ? '-i' : `${im}·i`;
       const imS = d.im.rad ? `(${im})` : im.startsWith('-') ? im.slice(1) : im;
       const op = !d.im.rad && im.startsWith('-') ? '-' : '+';
       return `${ballText(d.re)} ${op} ${imS}·i`;

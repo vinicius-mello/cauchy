@@ -51,6 +51,9 @@ test('funções FLINT citadas existem na FLINT exposta ou são conhecidas', () =
     'fmpz_mod_mat_charpoly', 'acb_set_round', 'arb_set_round', 'fmpz_divexact',
     'fmpz_mpoly_ctx_init', 'fmpz_mpoly_gen', 'fmpz_mpoly_get_term_coeff_fmpz', 'fmpz_mpoly_get_term_exp_ui',
     'fmpz_mpoly_factor', 'fmpq_mpoly_factor', 'fmpq_mpoly_evaluate_all_fmpq', 'fmpq_mpoly_divrem_ideal',
+    'fmpz_is_perfect_power', 'fmpz_mod_discrete_log_pohlig_hellman_run', 'fmpq_poly_xgcd', 'fmpz_mod_poly_xgcd',
+    'fq_default_poly_xgcd', 'fmpz_poly_factor_squarefree', 'fmpz_mod_poly_factor_squarefree',
+    'fq_default_poly_factor_squarefree', 'fmpz_powm', 'arb_floor',
   ]);
   const unknown = [];
   for (const e of REF.values()) for (const f of e.flint) if (!cfuncs.has(f) && !extra.has(f)) unknown.push(`${e.name}:${f}`);
@@ -92,6 +95,13 @@ const ERRORS = [
   '(x, y) = gens(QQ[x, y]); implicitplot(x, vars = [x, x])',
   'crt([1, 2], [2, 4])', 'crt(Zmod(4)(1), Zmod(6)(2))', 'crt([1], [0])', 'crt([1, 2], [3])', 'crt([1/2], [3])', 'crt([1], [3], 2)',
   'crt([1], [1/2])',
+  'ratrecon(5, 7)', 'ratrecon(3)', 'ratrecon(1, 1)', 'contfrac("a")', 'fromcontfrac([])', 'primitiveroot(8)', 'dlog(3, 4, 7)',
+  'dlog(3, 2, 8)', 'dlog(0, 2, 7)', 'dlog(3, 2)', 'p = nextprime(2^80); dlog(5, 3, p)', 'xgcd(gen(RR[x]), 1)',
+  'x = gen(QQ[x]); sqrt(x^2 + 1)', 'x = gen(Zmod(5)[x]); sqrt(x^2)', 'x = gen(QQ[x]); series(gamma, x, 4)',
+  'x = gen(QQ[x]); series(exp, 1 + x, 4)', 'x = gen(QQ[x]); series(log, x, 4)', 'x = gen(QQ[x]); series(inv, x, 4)',
+  'x = gen(QQ[x]); series(sqrt, 2 + x, 4)', 'x = gen(QQ[x]); revert(1 + x, 4)', 'x = gen(GF(5)[x]); series(exp, x, 4)',
+  'interpolate([1, 2], [1])', 'interpolate([1, 1], [1, 2])', 'interpolate([[1, 2; 3, 4]], [1])', 'sqfree(gen(RR[x]))',
+  'eigenvectors([1, 1; 0, 1])',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

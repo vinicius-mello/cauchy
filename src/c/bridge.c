@@ -936,3 +936,161 @@ EMSCRIPTEN_KEEPALIVE char *cy_version(void)
     snprintf(buf, sizeof(buf), "FLINT %s, GMP %s, MPFR %s", FLINT_VERSION, gmp_version, mpfr_get_version());
     return cy_strdup(buf);
 }
+
+/* ------------------------------------------- teoria dos números e polinômios */
+
+/* n = root^k com k máximo devolvido pela FLINT (0 se não é potência): [root, k] */
+EMSCRIPTEN_KEEPALIVE intptr_t *cy_fmpz_perfect_power(const fmpz *n)
+{
+    fmpz *r = cy_new_fmpz(NULL);
+    int k = fmpz_is_perfect_power(r, n);
+    intptr_t *v = cy_vec_new(2);
+    v[1] = (intptr_t) r;
+    v[2] = (intptr_t) cy_fmpz_from_si(k);
+    return v;
+}
+
+/* Logaritmos discretos de a e g na base primitiva interna da FLINT, módulo
+   o primo p: [log a, log g]. Recusa quando o custo estimado passa de maxcost. */
+EMSCRIPTEN_KEEPALIVE intptr_t *cy_fmpz_dlog(const fmpz *a, const fmpz *g, const fmpz *p, double maxcost)
+{
+    fmpz_mod_discrete_log_pohlig_hellman_t L;
+    fmpz_mod_discrete_log_pohlig_hellman_init(L);
+    double cost = fmpz_mod_discrete_log_pohlig_hellman_precompute_prime(L, p);
+    if (cost > maxcost)
+    {
+        fmpz_mod_discrete_log_pohlig_hellman_clear(L);
+        cy_error("logaritmo discreto caro demais: p - 1 tem um fator primo grande");
+    }
+    fmpz *la = cy_new_fmpz(NULL), *lg = cy_new_fmpz(NULL);
+    fmpz_mod_discrete_log_pohlig_hellman_run(la, L, a);
+    fmpz_mod_discrete_log_pohlig_hellman_run(lg, L, g);
+    fmpz_mod_discrete_log_pohlig_hellman_clear(L);
+    intptr_t *v = cy_vec_new(2);
+    v[1] = (intptr_t) la;
+    v[2] = (intptr_t) lg;
+    return v;
+}
+
+/* xgcd de polinômios: [g, s, t] com g = s·a + t·b */
+#define POLY_XGCD(tag, T, CALL)                                               \
+    EMSCRIPTEN_KEEPALIVE intptr_t *cy_xgcd_##tag(const void *a, const void *b, const void *ctx) \
+    {                                                                         \
+        (void) ctx;                                                           \
+        T##_struct *g = cy_new_##tag(ctx), *s = cy_new_##tag(ctx), *t = cy_new_##tag(ctx); \
+        CALL;                                                                 \
+        intptr_t *v = cy_vec_new(3);                                          \
+        v[1] = (intptr_t) g;                                                  \
+        v[2] = (intptr_t) s;                                                  \
+        v[3] = (intptr_t) t;                                                  \
+        return v;                                                             \
+    }
+
+POLY_XGCD(fmpq_poly, fmpq_poly, fmpq_poly_xgcd(g, s, t, a, b))
+POLY_XGCD(zmod_poly, fmpz_mod_poly, fmpz_mod_poly_xgcd(g, s, t, a, b, ctx))
+POLY_XGCD(fq_poly, fq_default_poly, fq_default_poly_xgcd(g, s, t, a, b, ctx))
+
+/* Fatoração livre de quadrados: [unidade, f1, e1, ...] (fi livres de quadrados, coprimos). */
+EMSCRIPTEN_KEEPALIVE intptr_t *cy_sqfree_fmpz_poly(const fmpz_poly_t p)
+{
+    if (fmpz_poly_is_zero(p))
+        cy_error("não é possível fatorar o polinômio zero");
+    intptr_t *out;
+    fmpz_poly_factor_t f;
+    fmpz_poly_factor_init(f);
+    fmpz_poly_factor_squarefree(f, p);
+    fmpz *c = cy_new_fmpz(NULL);
+    fmpz_set(c, &f->c);
+    POLY_FACTOR_OUT(fmpz_poly, f, , cy_new_fmpz_poly(NULL), fmpz_poly_set(q, f->p + i), c);
+    fmpz_poly_factor_clear(f);
+    return out;
+}
+
+EMSCRIPTEN_KEEPALIVE intptr_t *cy_sqfree_zmod_poly(const fmpz_mod_poly_t p, const fmpz_mod_ctx_t ctx)
+{
+    if (fmpz_mod_poly_is_zero(p, ctx))
+        cy_error("não é possível fatorar o polinômio zero");
+    if (!fmpz_is_probabprime(fmpz_mod_ctx_modulus(ctx)))
+        cy_error("fatoração em Z/nZ[x] requer n primo");
+    intptr_t *out;
+    fmpz_mod_poly_factor_t f;
+    fmpz_mod_poly_factor_init(f, ctx);
+    fmpz_mod_poly_t m;
+    fmpz_mod_poly_init(m, ctx);
+    fmpz_mod_poly_make_monic(m, p, ctx);
+    fmpz_mod_poly_factor_squarefree(f, m, ctx);
+    fmpz *lc = cy_new_fmpz(NULL);
+    fmpz_mod_poly_get_coeff_fmpz(lc, p, fmpz_mod_poly_degree(p, ctx), ctx);
+    POLY_FACTOR_OUT(fmpz_mod_poly, f, ctx, cy_new_zmod_poly(ctx), fmpz_mod_poly_set(q, f->poly + i, ctx), lc);
+    fmpz_mod_poly_clear(m, ctx);
+    fmpz_mod_poly_factor_clear(f, ctx);
+    return out;
+}
+
+EMSCRIPTEN_KEEPALIVE intptr_t *cy_sqfree_fq_poly(const fq_default_poly_t p, const fq_default_ctx_t ctx)
+{
+    if (fq_default_poly_is_zero(p, ctx))
+        cy_error("não é possível fatorar o polinômio zero");
+    fq_default_poly_factor_t f;
+    fq_default_poly_factor_init(f, ctx);
+    fq_default_poly_t m;
+    fq_default_poly_init(m, ctx);
+    fq_default_poly_make_monic(m, p, ctx);
+    fq_default_poly_factor_squarefree(f, m, ctx);
+    fq_default_struct *lc = cy_new_fq(ctx);
+    fq_default_poly_get_coeff(lc, p, fq_default_poly_degree(p, ctx), ctx);
+    slong num = fq_default_poly_factor_length(f, ctx);
+    intptr_t *v = cy_vec_new(1 + 2 * num);
+    v[1] = (intptr_t) lc;
+    for (slong i = 0; i < num; i++)
+    {
+        fq_default_poly_struct *q = cy_new_fq_poly(ctx);
+        fq_default_poly_factor_get_poly(q, f, i, ctx);
+        v[2 + 2 * i] = (intptr_t) q;
+        v[3 + 2 * i] = (intptr_t) cy_fmpz_from_si(fq_default_poly_factor_exp(f, i, ctx));
+    }
+    fq_default_poly_clear(m, ctx);
+    fq_default_poly_factor_clear(f, ctx);
+    return v;
+}
+
+/* Autovalores e autovetores (colunas de R) de matriz complexa com autovalores
+   simples: [λ1, ..., λn, R]. */
+EMSCRIPTEN_KEEPALIVE intptr_t *cy_acb_mat_eigvec(const acb_mat_t A, slong prec)
+{
+    slong n = acb_mat_nrows(A);
+    if (n != acb_mat_ncols(A))
+        cy_error("a matriz deve ser quadrada");
+    acb_ptr E = _acb_vec_init(n);
+    acb_mat_t R, Ra;
+    acb_mat_init(R, n, n);
+    acb_mat_init(Ra, n, n);
+    int ok = 0;
+    for (slong wp = prec; wp <= 16 * prec && !ok; wp *= 2)
+    {
+        acb_mat_approx_eig_qr(E, NULL, Ra, A, NULL, 0, wp);
+        ok = acb_mat_eig_simple(E, NULL, R, A, E, Ra, wp);
+    }
+    acb_mat_clear(Ra);
+    if (!ok)
+    {
+        acb_mat_clear(R);
+        _acb_vec_clear(E, n);
+        cy_error("não foi possível certificar autovalores simples (autovalores múltiplos ou próximos demais)");
+    }
+    intptr_t *v = cy_vec_new(n + 1);
+    for (slong i = 0; i < n; i++)
+    {
+        acb_struct *r = cy_new_acb(NULL);
+        acb_set_round(r, E + i, prec);
+        v[1 + i] = (intptr_t) r;
+    }
+    acb_mat_struct *M = cy_new_acb_mat(n, n, NULL);
+    for (slong i = 0; i < n; i++)
+        for (slong j = 0; j < n; j++)
+            acb_set_round(acb_mat_entry(M, i, j), acb_mat_entry(R, i, j), prec);
+    v[1 + n] = (intptr_t) M;
+    acb_mat_clear(R);
+    _acb_vec_clear(E, n);
+    return v;
+}

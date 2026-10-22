@@ -16,6 +16,7 @@ fmpz_pow_ui                fmpz           fmpz ui
 fmpz_powm                  fmpz           fmpz fmpz fmpz
 fmpz_invmod                fmpz           fmpz fmpz             ! elemento não inversível
 fmpz_CRT                   fmpz           fmpz fmpz fmpz fmpz si
+fmpz_kronecker             int            fmpz fmpz
 fmpz_gcd                   fmpz           fmpz fmpz
 fmpz_lcm                   fmpz           fmpz fmpz
 fmpz_cmp                   int            fmpz fmpz
@@ -72,6 +73,7 @@ fmpq_floor                 fmpz           fmpq                  = h_fmpq_floor
 fmpq_harmonic_ui           fmpq           ui
 fmpq_bernoulli             fmpq           ui                    = bernoulli_fmpq_ui
 fmpq_dedekind_sum          fmpq           fmpz fmpz             = fmpq_dedekind_sum
+fmpq_reconstruct           fmpq           fmpz fmpz             = fmpq_reconstruct_fmpz ! reconstrução racional falhou: não há fração com numerador e denominador pequenos o bastante
 fmpq_set                   fmpq           fmpq
 
 # ---------------------------------------------------------------- reais (arb)
@@ -294,6 +296,8 @@ fmpz_poly_evaluate_fmpz    fmpz           fmpz_poly fmpz
 fmpz_poly_equal            int            fmpz_poly fmpz_poly
 fmpz_poly_degree           si             fmpz_poly
 fmpz_poly_is_squarefree    int            fmpz_poly
+fmpz_poly_num_real_roots   si             fmpz_poly
+fmpz_poly_sqrt             fmpz_poly      fmpz_poly             ! o polinômio não é um quadrado perfeito
 fmpz_poly_cyclotomic       fmpz_poly      ui
 fmpz_poly_chebyshev_t      fmpz_poly      ui
 fmpz_poly_chebyshev_u      fmpz_poly      ui
@@ -329,6 +333,22 @@ fmpq_poly_is_squarefree    int            fmpq_poly
 fmpq_poly_make_monic       fmpq_poly      fmpq_poly
 fmpq_poly_numerator        fmpz_poly      fmpq_poly             = fmpq_poly_get_numerator
 fmpq_poly_legendre_p       fmpq_poly      ui
+fmpq_poly_inv_series         fmpq_poly      fmpq_poly si
+fmpq_poly_exp_series         fmpq_poly      fmpq_poly si
+fmpq_poly_log_series         fmpq_poly      fmpq_poly si
+fmpq_poly_sqrt_series        fmpq_poly      fmpq_poly si
+fmpq_poly_invsqrt_series     fmpq_poly      fmpq_poly si
+fmpq_poly_sin_series         fmpq_poly      fmpq_poly si
+fmpq_poly_cos_series         fmpq_poly      fmpq_poly si
+fmpq_poly_tan_series         fmpq_poly      fmpq_poly si
+fmpq_poly_asin_series        fmpq_poly      fmpq_poly si
+fmpq_poly_atan_series        fmpq_poly      fmpq_poly si
+fmpq_poly_sinh_series        fmpq_poly      fmpq_poly si
+fmpq_poly_cosh_series        fmpq_poly      fmpq_poly si
+fmpq_poly_tanh_series        fmpq_poly      fmpq_poly si
+fmpq_poly_asinh_series       fmpq_poly      fmpq_poly si
+fmpq_poly_atanh_series       fmpq_poly      fmpq_poly si
+fmpq_poly_revert_series      fmpq_poly      fmpq_poly si
 fmpq_poly_set              fmpq_poly      fmpq_poly
 fmpq_poly_evaluate_acb     acb            fmpq_poly acb prec    = h_fmpq_poly_evaluate_acb
 fmpq_poly_evaluate_arb     arb            fmpq_poly arb prec    = h_fmpq_poly_evaluate_arb
