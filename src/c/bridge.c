@@ -1108,3 +1108,46 @@ EMSCRIPTEN_KEEPALIVE void *cy_acb_pfq(acb_struct * const *as, slong p, acb_struc
     _acb_vec_clear(b, q);
     return r;
 }
+
+/* ------------------------------------------------- integração numérica */
+
+/* O integrando é uma função da linguagem: o C chama Module.cyIntegrand, que
+   devolve 0 quando f não pôde ser avaliada (ou não é holomorfa, se order ≥ 1). */
+EM_JS(int, cy_js_integrand, (acb_ptr out, const acb_struct *inp, slong order, slong prec), {
+  return Module.cyIntegrand(out, inp, order, prec);
+});
+
+static int cy_integrand(acb_ptr out, const acb_t inp, void *param, slong order, slong prec)
+{
+    (void) param;
+    if (!cy_js_integrand(out, inp, order, prec))
+        acb_indeterminate(out);
+    return 0;
+}
+
+EMSCRIPTEN_KEEPALIVE void *cy_acb_integrate(const acb_t a, const acb_t b, slong eval_limit, slong prec)
+{
+    acb_struct *r = cy_new_acb(NULL);
+    mag_t tol;
+    mag_init(tol);
+    mag_set_ui_2exp_si(tol, 1, -prec);
+    acb_calc_integrate_opt_t opt;
+    acb_calc_integrate_opt_init(opt);
+    if (eval_limit > 0)
+        opt->eval_limit = eval_limit;
+    acb_calc_integrate(r, cy_integrand, NULL, a, b, prec, tol, opt, prec);
+    mag_clear(tol);
+    return r;
+}
+
+EMSCRIPTEN_KEEPALIVE void *cy_acb_copy(const acb_t x)
+{
+    acb_struct *r = cy_new_acb(NULL);
+    acb_set(r, x);
+    return r;
+}
+
+EMSCRIPTEN_KEEPALIVE void cy_acb_set_into(acb_t dst, const acb_t src)
+{
+    acb_set(dst, src);
+}

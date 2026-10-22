@@ -70,6 +70,12 @@ export const EXAMPLES = [
       'plot(t -> gamma(t), -4, 5, ylim = [-10, 10])',
       'kleinj(i)',
       'lambertw(1)',
+      { pt: '# Função Z de Riemann–Siegel: seus zeros são os zeros de ζ na reta crítica\nplot(t -> hardyz(t), 0, 50)', en: '# Riemann–Siegel Z function: its zeros are the zeros of ζ on the critical line\nplot(t -> hardyz(t), 0, 50)' },
+      'curve(t -> fresnelc(t) + i*fresnels(t), -6, 6, points = 1500)',
+      { pt: '# Integrais com erro garantido (a precisão vem de with)\nwith digits = 40: integrate(t -> exp(-t^2), -10, 10) - sqrt(pi)', en: '# Integrals with guaranteed error (precision comes from with)\nwith digits = 40: integrate(t -> exp(-t^2), -10, 10) - sqrt(pi)' },
+      'with digits = 30: integrate(t -> sin(t + exp(t)), 0, 8)',
+      { pt: '# Ao longo de um caminho no plano complexo: resíduo de 1/(z² + 1) em i\nintegrate(z -> 1/(z^2 + 1), [1, 1 + 2i, -1 + 2i, -1, 1]) / (2*pi*i)', en: '# Along a path in the complex plane: residue of 1/(z² + 1) at i\nintegrate(z -> 1/(z^2 + 1), [1, 1 + 2i, -1 + 2i, -1, 1]) / (2*pi*i)' },
+      'integrate(t -> abs(sin(t)) * floor(t), 0, 6)',
     ],
   },
   {

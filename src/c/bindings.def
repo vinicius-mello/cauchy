@@ -278,6 +278,11 @@ fq_from_poly               fq             fmpz_poly fqctx       = h_fq_from_poly
 
 # ---------------------------------------------------------------- mais funções especiais
 acb_polygamma              acb            acb acb prec
+acb_union                  acb            acb acb prec
+acb_sqrt_analytic          acb            acb si prec
+acb_log_analytic           acb            acb si prec
+acb_pow_analytic           acb            acb acb si prec
+acb_real_abs               acb            acb si prec
 acb_lerch_phi              acb            acb acb acb prec      = acb_dirichlet_lerch_phi
 acb_hardy_z                acb            acb prec              = h_acb_hardy_z
 acb_hardy_theta            acb            acb prec              = h_acb_hardy_theta

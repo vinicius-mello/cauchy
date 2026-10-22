@@ -22,6 +22,11 @@ export class Flint {
     // Arena corrente: handles criados são registrados aqui para liberação.
     this.arena = null;
     this.live = 0;
+    // Modo analítico da integração: 0 desligado, 1 caminho complexo, 2 caminho real.
+    this.analytic = 0;
+    // Avaliação intervalar (pontos do integrando): if indecidível une os ramos
+    // e floor/ceil/sign de bolas ambíguas devolvem bolas.
+    this.intervalMode = false;
   }
 
   // Chama cy_<name> com tratamento de erro e restauração da pilha.

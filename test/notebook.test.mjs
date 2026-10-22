@@ -87,6 +87,15 @@ test('memória: polinômios em várias variáveis não deixam handles vivos', ()
   assert.equal(F.live, base);
 });
 
+test('memória: integrate libera os temporários de cada avaliação', () => {
+  const nb = new Notebook();
+  const base = F.live;
+  nb.update([{ id: 'a', src: 'with digits = 30: integrate(t -> sin(t + exp(t))*abs(t - 1), 0, 4) + integrate(t -> integrate(s -> s*t, 0, 1), 0, 1)' }]);
+  assert.ok(F.live - base < 20, `vivos: ${F.live - base}`);
+  nb.update([{ id: 'a', src: null }]);
+  assert.equal(F.live, base);
+});
+
 test('implicitplot: topologia e pontos sobre a curva', () => {
   const nb = new Notebook();
   const G = '(x, y) = gens(QQ[x, y]); ';

@@ -4,10 +4,10 @@
 import {
   Elem, Ring, ZZ, QQ, RR, CC, ZmodRing, FiniteField, PolyRing, MPolyRing, MatSpace,
   Zmod, GF, Poly, MPoly, Mat, flint, commonRing, coerce, isScalarRing, finiteOr,
-  add, sub, mul, div, neg, pow, compare, equal, divrem, mdivrem, inv, matInv, floor, ceil, sign, isZero,
+  add, sub, mul, div, neg, pow, compare, equal, divrem, mdivrem, inv, matInv, floor, ceil, sign, isZero, unionValues,
 } from '../runtime/rings.js';
 import { Tuple, Func, Factored, Graphic, Widget, UNIT, asGraphic } from '../runtime/values.js';
-import { fail } from '../runtime/errors.js';
+import { fail, NonAnalytic } from '../runtime/errors.js';
 import { affine, affineItems, mapItems } from '../runtime/geom.js';
 import { zeroSet } from '../runtime/implicit.js';
 import { showText } from '../runtime/show.js';
@@ -18,10 +18,36 @@ import {
 
 export const DOCS = new Map();
 
+// Integração (modo analítico): funções com cortes de ramificação ou não
+// holomorfas não podem garantir holomorfia num argumento complexo.
+const ANALYTIC_VARIANT = { acb_sqrt: 'acb_sqrt_analytic', acb_log: 'acb_log_analytic' };
+const BRANCHY = new Set([
+  'cbrt', 'root', 'arg', 're', 'im', 'conj', 'mid', 'rad', 'log10', 'log2',
+  'log1p', 'asin', 'acos', 'atan', 'atan2', 'asinh', 'acosh', 'atanh', 'lgamma', 'polylog', 'agm', 'lambertw', 'li', 'ei',
+  'si', 'ci', 'bessely', 'besselk', 'gammainc', 'betainc', 'expint', 'hyp2f1', 'hypu', 'hypergeom', 'legendrep', 'legendreq',
+  'ellipk', 'ellipe', 'ellipf', 'ellippi', 'carlsonrf', 'carlsonrg', 'carlsonrj', 'erfinv', 'erfcinv', 'lerchphi', 'kleinj',
+  'dedekindeta', 'modlambda', 'modulardelta', 'interval', 'contains', 'overlaps', 'coulombf', 'coulombg', 'hardyz',
+  'hardytheta', 'jacobip', 'gegenbauerc', 'stieltjes', 'zetazero', 'N', 'accuracy',
+]);
+// Ordem/grau inteiro exato: então a função é inteira no argumento principal.
+const isIntegerArg = (x) => x instanceof Elem && (x.ring === ZZ || (x.ring === QQ && ZZ.toStr(QQ.den(x)) === '1'));
+const BRANCHY_UNLESS_INT = new Set(['besselj', 'besseli', 'polygamma', 'chebyshevt', 'chebyshevu', 'hermiteh']);
+function analyticGuard(name, impl) {
+  return (args, kw) => {
+    const F = flint();
+    if (F && F.analytic && args.some((a) => a instanceof Elem && a.ring === CC)) {
+      if (BRANCHY.has(name)) throw new NonAnalytic();
+      if (BRANCHY_UNLESS_INT.has(name) && !isIntegerArg(args[0])) throw new NonAnalytic();
+      if (name === 'zeta' && args.length > 1) throw new NonAnalytic();
+    }
+    return impl(args, kw);
+  };
+}
+
 export function makeGlobals() {
   const env = new Env();
   const def = (name, arity, impl, doc = '') => {
-    const f = new Func(name, arity, impl);
+    const f = new Func(name, arity, analyticGuard(name, impl));
     env.set(name, f);
     if (doc) DOCS.set(name, doc);
     return f;
@@ -57,7 +83,10 @@ export function makeGlobals() {
       const r = RR.op(arbName, RR.coerce(x));
       return acbName ? finiteOr(r, () => CC.op(acbName, CC.coerce(x))) : r;
     }
-    if ((R === CC || ((R === ZZ || R === QQ || R === RR) && !arbName)) && acbName) return CC.op(acbName, CC.coerce(x));
+    if ((R === CC || ((R === ZZ || R === QQ || R === RR) && !arbName)) && acbName) {
+      if (flint().analytic && ANALYTIC_VARIANT[acbName]) return CC.op(ANALYTIC_VARIANT[acbName], CC.coerce(x), 1);
+      return CC.op(acbName, CC.coerce(x));
+    }
     fail(`função não definida para ${R}`);
   });
 
@@ -167,10 +196,22 @@ export function makeGlobals() {
     if (x.ring === ZZ) return ZZ.op('fmpz_abs', x);
     if (x.ring === QQ) return QQ.op('fmpq_abs', x);
     if (x.ring === RR) return RR.op('arb_abs', x);
-    if (x.ring === CC) return CC.opTo(RR, 'acb_abs', x);
+    if (x.ring === CC) {
+      // Integração: |x| estendido holomorficamente (±x) só vale em caminho real.
+      if (flint().analytic === 2) return CC.op('acb_real_abs', x, 1);
+      if (flint().analytic) throw new NonAnalytic();
+      return CC.opTo(RR, 'acb_abs', x);
+    }
     fail(`abs não definido em ${x.ring}`);
   })(x), 'abs(x): valor absoluto');
-  def('sign', 1, ([x]) => int(sign(elem(x))), 'sign(x): -1, 0 ou 1');
+  def('sign', 1, ([x]) => {
+    elem(x);
+    // Integração: bola que contém 0 e outros valores tem sinal em [−1, 1].
+    if (flint().intervalMode && x.ring === RR && bool(RR.op('arb_contains_zero', x)) && !bool(RR.op('arb_is_zero', x))) {
+      return RR.op('arb_union', RR.fromNumber(-1), RR.fromNumber(1));
+    }
+    return int(sign(x));
+  }, 'sign(x): -1, 0 ou 1');
   def('floor', 1, ([x]) => vec(floor)(x), 'floor(x): maior inteiro ≤ x');
   def('ceil', 1, ([x]) => vec(ceil)(x), 'ceil(x): menor inteiro ≥ x');
   def('round', 1, ([x]) => vec((x) => floor(add(x, QQ.frac(int(1), int(2)))))(x), 'round(x): inteiro mais próximo');
@@ -699,6 +740,70 @@ export function makeGlobals() {
   def('ellipe', 1, ([m]) => CC.op('acb_elliptic_e', CC.coerce(elem(m))), 'ellipe(m): integral elíptica completa E(m)');
   def('weierstrassp', 2, ([z, t]) => CC.op('acb_elliptic_p', CC.coerce(elem(z)), CC.coerce(elem(t))), 'weierstrassp(z, τ): ℘ de Weierstrass');
   def('barnesg', 1, ([x]) => CC.op('acb_barnes_g', CC.coerce(elem(x))), 'barnesg(z): função G de Barnes');
+  // ------------------------------------------------- integração numérica
+  // acb_calc_integrate chama f de volta: em ordem 0 só o valor (pontos reais
+  // chegam como reais); em ordem ≥ 1 em modo analítico, onde cortes de
+  // ramificação e funções não holomorfas viram indeterminado.
+  const integrateSegment = (f, a, b, maxevals, state) => {
+    const F = flint();
+    const M = F.M;
+    const prev = M.cyIntegrand;
+    const realPath = isRealArg(a) && isRealArg(b);
+    M.cyIntegrand = (out, inp, order, wp) => {
+      let arena = null, ok = 1;
+      try {
+        ({ arena } = F.inArena(() => F.withPrec(wp, () => {
+          let z = CC.wrap(F.raw('acb_copy', inp));
+          if (order === 0 && bool(CC.op('acb_is_real', z))) z = CC.re(z);
+          const saved = F.analytic, savedI = F.intervalMode;
+          F.analytic = order >= 1 ? (realPath ? 2 : 1) : 0;
+          F.intervalMode = order === 0;
+          try {
+            const v = callValue(f, [z]);
+            if (!(v instanceof Elem) || !isScalarRing(v.ring) || !CC.accepts(v.ring)) fail('integrate: f deve devolver um número real ou complexo');
+            if (order === 0 && !isRealArg(v)) state.realValues = false;
+            F.raw('acb_set_into', out, CC.coerce(v).ptr);
+          } finally {
+            F.analytic = saved;
+            F.intervalMode = savedI;
+          }
+        })));
+      } catch (e) {
+        arena = e.arena;
+        ok = 0;
+        if (order === 0 && !(e instanceof NonAnalytic)) state.error ??= e;
+      } finally {
+        for (const el of arena ?? []) F.release(el);
+      }
+      return ok;
+    };
+    try {
+      return CC.wrap(F.raw('acb_integrate', cc(a).ptr, cc(b).ptr, maxevals, F.prec));
+    } finally {
+      M.cyIntegrand = prev;
+    }
+  };
+  def('integrate', null, ([f, a, b], kw) => {
+    if (!(f instanceof Func) && !isPoly(f)) fail('integrate espera uma função, como t -> exp(-t^2)');
+    // Caminho: [a, b] ou lista de vértices de uma poligonal no plano complexo.
+    const path = b === undefined ? iterable(a).map((x) => elem(x)) : [elem(a), elem(b)];
+    if (path.length < 2) fail('integrate: o caminho precisa de pelo menos dois pontos');
+    for (const p of path) if (!isScalarRing(p.ring) || !CC.accepts(p.ring)) fail('integrate: os extremos devem ser números reais ou complexos');
+    const maxevals = kw.maxevals === undefined ? 0 : toInt(kw.maxevals, 'maxevals');
+    const state = { realValues: true, error: null };
+    let total = CC.zero();
+    for (let k = 0; k + 1 < path.length; k++) total = add(total, integrateSegment(f, path[k], path[k + 1], maxevals, state));
+    if (!bool(CC.op('acb_is_finite', total))) {
+      // Erros de bola indecidível vêm de descontinuidades (comparações, floor...).
+      if (state.error && !/indecidível|não determina/.test(state.error.message)) throw state.error;
+      if (state.error) fail('integrate: f é descontínua no caminho de um modo que não se consegue limitar');
+      fail('integrate: não foi possível limitar a integral (singularidade no caminho ou nos extremos, ou avaliações demais)');
+    }
+    // f real nos pontos de um caminho real: a integral é real.
+    if (path.every(isRealArg) && state.realValues) return CC.re(total);
+    return total;
+  }, 'integrate(f, a, b): ∫ₐᵇ f(t) dt com erro garantido; integrate(f, [z₀, z₁, ...]) ao longo de uma poligonal');
+
   // ------------------------------------------------- mais funções especiais
   // Funções complexas; com argumentos reais e parte imaginária do resultado
   // exatamente nula, devolvem um real.
@@ -1550,6 +1655,18 @@ export function makeGlobals() {
   def('take', 2, ([xs, n]) => list(xs).slice(0, Math.max(0, toInt(n))), 'take(xs, n)');
   def('drop', 2, ([xs, n]) => list(xs).slice(Math.max(0, toInt(n))), 'drop(xs, n)');
   def('reverse', 1, ([xs]) => (typeof xs === 'string' ? [...xs].reverse().join('') : [...list(xs)].reverse()), 'reverse(xs)');
+  // Escolha entre a e b; na integração (modo intervalar), comparação
+  // indecidível vale pela união dos dois.
+  const pick = (a, b, takeB) => {
+    try {
+      return takeB(a, b) ? b : a;
+    } catch (e) {
+      if (!flint().intervalMode || !/indecidível/.test(e.message)) throw e;
+      const u = unionValues(a, b);
+      if (u === null) throw e;
+      return u;
+    }
+  };
   const cmpValues = (a, b) => {
     if (typeof a === 'string' && typeof b === 'string') return a < b ? -1 : a > b ? 1 : 0;
     if (Array.isArray(a) && Array.isArray(b)) {
@@ -1577,12 +1694,12 @@ export function makeGlobals() {
   def('min', null, (args) => {
     const xs = args.length === 1 ? list(args[0]) : args;
     if (!xs.length) fail('min de lista vazia');
-    return xs.reduce((a, b) => (cmpValues(b, a) < 0 ? b : a));
+    return xs.reduce((a, b) => pick(a, b, (x, y) => cmpValues(y, x) < 0));
   }, 'min(xs) ou min(a, b, ...)');
   def('max', null, (args) => {
     const xs = args.length === 1 ? list(args[0]) : args;
     if (!xs.length) fail('max de lista vazia');
-    return xs.reduce((a, b) => (cmpValues(b, a) > 0 ? b : a));
+    return xs.reduce((a, b) => pick(a, b, (x, y) => cmpValues(y, x) > 0));
   }, 'max(xs) ou max(a, b, ...)');
   def('zip', null, (args) => {
     const ls = args.map((a) => list(a));

@@ -58,7 +58,7 @@ test('funções FLINT citadas existem na FLINT exposta ou são conhecidas', () =
     'arb_hypgeom_gamma_upper', 'acb_hypgeom_gamma_upper', 'acb_hypgeom_m', 'acb_hypgeom_0f1', 'acb_hypgeom_pfq',
     'acb_hypgeom_legendre_p', 'acb_hypgeom_legendre_q', 'acb_modular_theta', 'arb_hypgeom_fresnel', 'acb_hypgeom_fresnel',
     'acb_hypgeom_coulomb', 'acb_dirichlet_hardy_z', 'acb_dirichlet_hardy_theta', 'acb_elliptic_f', 'acb_elliptic_e_inc',
-    'acb_elliptic_pi_inc',
+    'acb_elliptic_pi_inc', 'acb_calc_integrate', 'acb_sqrt_analytic', 'acb_log_analytic', 'acb_pow_analytic', 'acb_real_abs',
   ]);
   const unknown = [];
   for (const e of REF.values()) for (const f of e.flint) if (!cfuncs.has(f) && !extra.has(f)) unknown.push(`${e.name}:${f}`);
@@ -109,6 +109,8 @@ const ERRORS = [
   'eigenvectors([1, 1; 0, 1])',
   'stieltjes(-1)', 'sphericalharmonic(1, 2, 0, 0)', 'jacobitheta(5, 0, i)', 'erfinv(i)', 'erfinv(2)', 'legendreq(1)',
   'gegenbauerc(1)', 'chebyshevt(1, 2, 3)',
+  'integrate(3, 0, 1)', 'integrate(t -> t, [1])', 'integrate(t -> t, "a", 1)', 'integrate(t -> "a", 0, 1)',
+  'integrate(t -> 1/t, -1, 1)', 'integrate(t -> log(t), 0, 1)', 'integrate(t -> sin(t)/t, 0, 1)',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

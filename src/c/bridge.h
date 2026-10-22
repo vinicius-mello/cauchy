@@ -40,6 +40,7 @@
 #include <flint/ulong_extras.h>
 #include <flint/partitions.h>
 #include <flint/bernoulli.h>
+#include <flint/acb_calc.h>
 #include <flint/fmpz_mpoly.h>
 #include <flint/fmpz_mpoly_factor.h>
 #include <flint/fmpq_mpoly.h>

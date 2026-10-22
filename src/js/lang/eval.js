@@ -3,7 +3,7 @@
 import { CauchyError } from './lexer.js';
 import {
   Elem, Ring, ZZ, QQ, RR, PolyRing, MPolyRing, MatSpace, Poly, MPoly, Mat, flint,
-  add, sub, mul, div, neg, pow, equal, compare, floorDiv, mod, commonRing, coerce,
+  add, sub, mul, div, neg, pow, equal, compare, floorDiv, mod, commonRing, coerce, unionValues,
 } from '../runtime/rings.js';
 import { Tuple, Func, UNIT, Widget, Graphic, asGraphic } from '../runtime/values.js';
 import { fail } from '../runtime/errors.js';
@@ -125,7 +125,16 @@ export function evaluate(node, env) {
       return negate(v);
     });
     case 'if': {
-      const c = located(node.c, () => toBool(evaluate(node.c, env)));
+      let c;
+      try {
+        c = located(node.c, () => toBool(evaluate(node.c, env)));
+      } catch (e) {
+        // Integração: condição indecidível numa bola vale pelos dois ramos.
+        if (!flint().intervalMode || !/indecidível/.test(e.message)) throw e;
+        const u = unionValues(evaluate(node.a, env), evaluate(node.b, env));
+        if (u === null) throw e;
+        return u;
+      }
       return evaluate(c ? node.a : node.b, env);
     }
     case 'let': {

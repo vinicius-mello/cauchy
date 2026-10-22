@@ -91,6 +91,12 @@ const cases = [
   ['x = gen(Zmod(7)[x]); roots(x^2 + 1)', '[]'],
   ['x = gen(Zmod(13)[x]); sort(roots(x^2 + 1))', '[5, 8]'],
   ['F = GF(9); y = gen(F[y]); len(roots(y^9 - y))', '9'],
+  // integração com erro garantido
+  ['with digits = 30: [contains(integrate(t -> exp(-t^2), -10, 10) - sqrt(pi), 0), contains(integrate(t -> 1/(1 + t^2), 0, 1) - pi/4, 0)]', '[true, true]'],
+  ['with digits = 20: [contains(integrate(t -> sqrt(1 - t^2), -1, 1) - pi/2, 0), contains(integrate(t -> 1/t, [1, i, -1, -i, 1]) - 2*pi*i, 0)]', '[true, true]'],
+  ['[contains(integrate(t -> abs(t), -1, 2) - 5/2, 0), contains(integrate(t -> floor(t)*t, 0, 3) - 13/2, 0), contains(integrate(t -> if t < 0 then -t^2 else t^3, -1, 2) - 11/3, 0)]', '[true, true, true]'],
+  ['[contains(integrate(t -> max(t, 0), -1, 1) - 1/2, 0), contains(integrate(t -> integrate(s -> s*t, 0, 1), 0, 1) - 1/4, 0)]', '[true, true]'],
+  ['x = gen(QQ[x]); ring(integrate(x^3 - x, 0, 2)), ring(integrate(t -> exp(i*t), 0, pi))', '(RR, CC)'],
   // funções especiais (identidades conhecidas)
   ['with digits = 20: [contains(polygamma(1, 1) - pi^2/6, 0), contains(hyp1f1(1, 2, 1) - (e - 1), 0), contains(hyp0f1(1, -1/4) - besselj(0, 1), 0)]', '[true, true, true]'],
   ['with digits = 20: [contains(ellipf(pi/2, 1/2) - ellipk(1/2), 0), contains(ellipe(pi/2, 1/2) - ellipe(1/2), 0), contains(carlsonrg(0, 1, 1) - pi/4, 0)]', '[true, true, true]'],

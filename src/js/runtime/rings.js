@@ -2,7 +2,7 @@
 // anéis de polinômios R[x] e R[x, y, ...] e espaços de matrizes Mat(R). Inclui coerção para
 // um anel comum e as operações aritméticas da linguagem.
 
-import { fail } from './errors.js';
+import { fail, NonAnalytic } from './errors.js';
 
 let F = null;
 
@@ -887,7 +887,10 @@ export function pow(a, e) {
       const r = RR.op('arb_pow', RR.coerce(a), RR.coerce(e));
       return finiteOr(r, () => CC.op('acb_pow', CC.coerce(a), CC.coerce(e)));
     }
-    if (R === CC) return CC.op('acb_pow', coerce(a, CC), coerce(e, CC));
+    if (R === CC) {
+      if (F.analytic) return CC.op('acb_pow_analytic', coerce(a, CC), coerce(e, CC), 1);
+      return CC.op('acb_pow', coerce(a, CC), coerce(e, CC));
+    }
   }
   fail(`potência ${A}^${e.ring} não suportada`);
 }
@@ -923,6 +926,11 @@ export function equal(a, b) {
 
 // <, <=, >, >= : apenas anéis ordenados (ZZ, QQ, RR).
 export function compare(a, b, op) {
+  // Integração em caminho real (modo analítico): a comparação decide pela parte
+  // real, o que escolhe o ramo holomorfo que coincide com f no eixo real.
+  if (F.analytic === 2 && (a.ring === CC || b.ring === CC)) {
+    return compare(a.ring === CC ? CC.re(a) : a, b.ring === CC ? CC.re(b) : b, op);
+  }
   const R = commonRing(a.ring, b.ring);
   const x = coerce(a, R), y = coerce(b, R);
   if (R === ZZ || R === QQ) {
@@ -941,6 +949,11 @@ export function compare(a, b, op) {
 }
 
 export function sign(a) {
+  if (a.ring === CC && F.analytic === 2) {
+    const s = sign(CC.re(a));
+    if (s === 0 && !RR.op('arb_is_zero', CC.re(a))) throw new NonAnalytic();
+    return s;
+  }
   if (a.ring === ZZ) return ZZ.sgn(a);
   if (a.ring === QQ) return QQ.sgn(a);
   if (a.ring === RR) {
@@ -974,16 +987,51 @@ export function mod(a, b) {
   fail(`% não suportado em ${R}`);
 }
 
+// Integração em caminho real: floor/ceil de bola complexa valem pela parte real,
+// desde que constantes na bola (senão, não holomorfas).
+function realPart(a, what) {
+  if (F.analytic !== 2) fail(`${what} não definido em ${a.ring}`);
+  return CC.re(a);
+}
+function constantOn(b) {
+  try {
+    return ZZ.wrap(F.raw('arb_get_unique_fmpz', b.ptr));
+  } catch {
+    throw new NonAnalytic();
+  }
+}
+
 export function floor(a) {
+  if (a.ring === CC) return constantOn(RR.op('arb_floor', realPart(a, 'floor')));
   if (a.ring === ZZ) return a;
   if (a.ring === QQ) return QQ.opTo(ZZ, 'fmpq_floor', a);
-  if (a.ring === RR) return ZZ.wrap(F.raw('arb_get_unique_fmpz', RR.op('arb_floor', a).ptr));
+  if (a.ring === RR) return uniqueOrBall(RR.op('arb_floor', a));
   fail(`floor não definido em ${a.ring}`);
 }
 
 export function ceil(a) {
+  if (a.ring === CC) return constantOn(RR.op('arb_ceil', realPart(a, 'ceil')));
   if (a.ring === ZZ) return a;
   if (a.ring === QQ) return ZZ.neg(floor(QQ.neg(a)));
-  if (a.ring === RR) return ZZ.wrap(F.raw('arb_get_unique_fmpz', RR.op('arb_ceil', a).ptr));
+  if (a.ring === RR) return uniqueOrBall(RR.op('arb_ceil', a));
   fail(`ceil não definido em ${a.ring}`);
+}
+
+// Inteiro contido numa bola; no modo intervalar, a própria bola se ambígua.
+function uniqueOrBall(b) {
+  if (!F.intervalMode) return ZZ.wrap(F.raw('arb_get_unique_fmpz', b.ptr));
+  try {
+    return ZZ.wrap(F.raw('arb_get_unique_fmpz', b.ptr));
+  } catch {
+    return b;
+  }
+}
+
+// União de dois valores numéricos (ramos de um if indecidível).
+export function unionValues(a, b) {
+  if (!(a instanceof Elem) || !(b instanceof Elem) || !isScalarRing(a.ring) || !isScalarRing(b.ring)) return null;
+  const R = commonRing(commonRing(a.ring, b.ring), RR);
+  if (R === RR) return RR.op('arb_union', RR.coerce(a), RR.coerce(b));
+  if (R === CC) return CC.op('acb_union', coerce(a, CC), coerce(b, CC));
+  return null;
 }
