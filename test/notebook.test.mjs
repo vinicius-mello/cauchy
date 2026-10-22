@@ -7,6 +7,7 @@ before(async () => { F = await init(); });
 
 const show = (r) => (r.status === 'error' ? `ERRO: ${r.error.message}` : r.display ? toText(r.display) : '');
 const byId = (res) => Object.fromEntries(res.map((r) => [r.id, show(r)]));
+const byIdDisplay = (res) => Object.fromEntries(res.map((r) => [r.id, r.display]));
 
 test('reavalia apenas dependentes, em ordem topológica', () => {
   const nb = new Notebook();
@@ -84,6 +85,33 @@ test('memória: polinômios em várias variáveis não deixam handles vivos', ()
   assert.ok(F.live - base < 60, `vivos após reavaliações: ${F.live - base}`);
   nb.update(['a', 'b', 'c', 'd'].map((id) => ({ id, src: null })));
   assert.equal(F.live, base);
+});
+
+test('implicitplot: topologia e pontos sobre a curva', () => {
+  const nb = new Notebook();
+  const G = '(x, y) = gens(QQ[x, y]); ';
+  const trace = (src) => {
+    const d = byIdDisplay(nb.update([{ id: 'a', src: G + `implicitplot(${src})` }])).a;
+    assert.equal(d.t, 'graphics');
+    return d.items;
+  };
+  const resid = (items, f) => Math.max(0, ...items.flatMap((it) => it.pts.map(([x, y]) => Math.abs(f(x, y)))));
+  let it = trace('x^2 + y^2 - 1');
+  assert.deepEqual(it.map((l) => l.closed), [true]);
+  assert.ok(resid(it, (x, y) => x * x + y * y - 1) < 1e-12);
+  // Multiplicidade não some com a curva; fatores distintos viram linhas separadas.
+  assert.equal(trace('(x^2 + y^2 - 1)^2').length, 1);
+  it = trace('x^2 - y^2');
+  assert.deepEqual(it.map((l) => l.closed), [false, false]);
+  // Oval pequeno (raio 0,01) é encontrado; sem pontos reais, nada.
+  it = trace('((x - 2)^2 + y^2 - 1/10000)*(x^2 + y^2 - 4)');
+  assert.equal(it.length, 2);
+  assert.equal(trace('x^2 + y^2 + 1').length, 0);
+  it = trace('(x^2 + y^2)^2 - 2*(x^2 - y^2)');
+  assert.ok(resid(it, (x, y) => (x * x + y * y) ** 2 - 2 * (x * x - y * y)) < 1e-8);
+  const d = byIdDisplay(nb.update([{ id: 'a', src: 'x = gen(QQ[x]); implicitplot(x^2 - 2, xlim = [-2, 2])' }])).a;
+  assert.equal(d.items.length, 2); // retas verticais x = ±√2
+  assert.deepEqual(d.opts.ylim, [-2, 2]);
 });
 
 test('widgets: valor vem do estado da célula', () => {

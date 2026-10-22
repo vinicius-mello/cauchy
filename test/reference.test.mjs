@@ -87,6 +87,9 @@ const ERRORS = [
   '(x, y) = gens(QQ[x, y]); subs(x, y)', 'x = gen(QQ[x]); disc(x^2, "y")', 'divrem(3, [1])', 'vars(1..3)',
   '(x, y) = gens(QQ[x, y]); flint("fmpz_mpoly_total_degree", x)', 'flint("fmpq_mpoly_total_degree", 1)',
   '(x, y) = gens(QQ[x, y]); (x + y)("a", 1)', '(x, y) = gens(QQ[x, y]); x^-1', 'gens(3)',
+  'implicitplot(3)', '(x, y) = gens(Zmod(5)[x, y]); implicitplot(x + y)', '(x, y, z) = gens(QQ[x, y, z]); implicitplot(x + z)',
+  '(x, y) = gens(QQ[x, y]); implicitplot(0*x)', '(x, y) = gens(QQ[x, y]); implicitplot(x, resolution = 2)',
+  '(x, y) = gens(QQ[x, y]); implicitplot(x, vars = [x, x])',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

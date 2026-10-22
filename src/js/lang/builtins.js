@@ -9,6 +9,7 @@ import {
 import { Tuple, Func, Factored, Graphic, Widget, UNIT, asGraphic } from '../runtime/values.js';
 import { fail } from '../runtime/errors.js';
 import { affine, affineItems, mapItems } from '../runtime/geom.js';
+import { zeroSet } from '../runtime/implicit.js';
 import { showText } from '../runtime/show.js';
 import {
   Env, callValue, toInt, toBool, int, iterable, range, index, valuesEqual, typeName,
@@ -1457,6 +1458,63 @@ export function makeGlobals() {
     });
     return prim('line', { pts: out }, kw, ['points']);
   }, 'curve(t -> z(t), a, b, points=400): curva paramétrica');
+  // Conjunto zero de p(x, y): fatoração exata na FLINT (cada fator irredutível
+  // uma vez, sem multiplicidades) e traçado em ponto flutuante (implicit.js).
+  const IMPLICIT_OPTS = ['xlim', 'ylim', 'resolution', 'vars'];
+  def('implicitplot', 1, ([p], kw) => {
+    if (!isPoly(p)) fail('implicitplot espera um polinômio em x e y');
+    const R = p.ring;
+    if (R.base !== ZZ && R.base !== QQ) fail('implicitplot requer coeficientes em ZZ ou QQ');
+    const names = R instanceof MPolyRing ? R.vars : [R.v];
+    // Eixos: vars = [u, v], ou x e y se o anel os tem, ou as duas primeiras variáveis.
+    let axes;
+    if (kw.vars !== undefined) {
+      axes = iterable(kw.vars).map(varName);
+      if (axes.length !== 2 || axes[0] === axes[1]) fail('vars deve ser [u, v] com duas variáveis distintas');
+    } else if (names.includes('x') && names.includes('y')) axes = ['x', 'y'];
+    else if (names.length >= 2) axes = names.slice(0, 2);
+    else axes = names[0] === 'y' ? ['x', 'y'] : [names[0], 'y'];
+    const used = R instanceof MPolyRing ? R.usedVars(p).map((i) => R.vars[i]) : (R.degree(p) > 0 ? [R.v] : []);
+    const extra = used.filter((v) => !axes.includes(v));
+    if (extra.length) fail(`implicitplot: p deve depender só de ${axes.join(' e ')} (usa também ${extra.join(', ')})`);
+    if (isZero(p)) fail('implicitplot: o polinômio zero se anula em todo o plano');
+    const lim = limits(kw);
+    const xlim = lim.xlim ?? [-3, 3], ylim = lim.ylim ?? xlim;
+    const resolution = kw.resolution === undefined ? 512 : toInt(kw.resolution, 'resolution');
+    if (resolution < 8 || resolution > 4096) fail('resolution deve estar entre 8 e 4096');
+    const attrs = { color: 1, ...attrsOf(kw, IMPLICIT_OPTS) };
+    const items = [];
+    for (const t of factored0(p)) {
+      const C = denseFloat(t.items[0], axes);
+      if (!C) continue;
+      for (const { pts, closed } of zeroSet(C, { xlim, ylim, resolution })) {
+        items.push({ g: 'line', pts, closed, attrs });
+      }
+    }
+    return new Graphic(items, { xlim, ylim, aspect: 'equal' });
+  }, 'implicitplot(p, xlim=, ylim=, resolution=512): curva p(x, y) = 0');
+  // Fatores irredutíveis (com multiplicidade) de um polinômio de ZZ/QQ.
+  const factored0 = (p) => env.lookup('factor').impl([p]);
+  // Matriz C[i][j] (coeficiente de u^i v^j, normalizada) ou null se constante.
+  const denseFloat = (q, [u, v]) => {
+    const R = q.ring;
+    const terms = termsOf(q);
+    const iu = R instanceof MPolyRing ? R.index(u) : R.v === u ? 0 : -1;
+    const iv = R instanceof MPolyRing ? R.index(v) : R.v === v ? 0 : -1;
+    const eu = (e) => (iu < 0 ? 0 : e[iu]), ev = (e) => (iv < 0 ? 0 : e[iv]);
+    const dx = Math.max(...terms.map(({ e }) => eu(e))), dy = Math.max(...terms.map(({ e }) => ev(e)));
+    if (dx === 0 && dy === 0) return null;
+    const C = Array.from({ length: dx + 1 }, () => new Array(dy + 1).fill(0));
+    let big = 0;
+    for (const { c, e } of terms) {
+      const d = c.ring.toNumber(c);
+      if (!Number.isFinite(d)) fail('implicitplot: coeficientes grandes demais');
+      C[eu(e)][ev(e)] = d;
+      big = Math.max(big, Math.abs(d));
+    }
+    for (const row of C) for (let j = 0; j < row.length; j++) row[j] /= big;
+    return C;
+  };
   def('text', 2, ([str, p], kw) => {
     const POS = ['c', 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
     const pos = kw.pos ?? 'c';
