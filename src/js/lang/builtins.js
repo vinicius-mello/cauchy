@@ -330,6 +330,46 @@ export function makeGlobals() {
     return ZZ.op('fmpz_powm', zz(a), zz(e), zz(m));
   }, 'powmod(a, e, m) = a^e mod m');
   def('invmod', 2, ([a, m]) => ZZ.op('fmpz_invmod', zz(a), zz(m)), 'invmod(a, m): inverso de a módulo m');
+  // Teorema Chinês do Resto, combinando as congruências duas a duas. Módulos
+  // coprimos usam fmpz_CRT; senão, a forma geral exige r₁ ≡ r₂ (mod mdc).
+  const crt2 = ([r1, m1], [r2, m2]) => {
+    const g = ZZ.op('fmpz_gcd', m1, m2);
+    if (ZZ.op('fmpz_is_one', g)) return [ZZ.op('fmpz_CRT', r1, m1, r2, m2, 0), ZZ.op('fmpz_mul', m1, m2)];
+    const d = ZZ.op('fmpz_sub', r2, r1);
+    if (!ZZ.isZero(ZZ.op('fmpz_fdiv_r', d, g))) {
+      fail(`sistema sem solução: ${ZZ.toStr(r1)} ≢ ${ZZ.toStr(r2)} (mod ${ZZ.toStr(g)})`);
+    }
+    // x = r₁ + m₁·t com t ≡ (d/g)·(m₁/g)⁻¹ (mod m₂/g)
+    const n = ZZ.op('fmpz_divexact', m2, g);
+    const M = ZZ.op('fmpz_mul', m1, n);
+    if (ZZ.op('fmpz_is_one', n)) return [r1, M];
+    const t = ZZ.op('fmpz_fdiv_r', ZZ.op('fmpz_mul', ZZ.op('fmpz_divexact', d, g), ZZ.op('fmpz_invmod', ZZ.op('fmpz_divexact', m1, g), n)), n);
+    return [ZZ.op('fmpz_fdiv_r', ZZ.op('fmpz_add', r1, ZZ.op('fmpz_mul', m1, t)), M), M];
+  };
+  def('crt', null, (args, kw) => {
+    let pairs, zmod = false;
+    const allZmod = (xs) => xs.length > 0 && xs.every((x) => x instanceof Elem && x.ring instanceof ZmodRing);
+    if (args.length === 1 && Array.isArray(args[0]) && allZmod(args[0])) args = args[0];
+    if (allZmod(args)) {
+      zmod = true;
+      pairs = args.map((a) => [a.ring.lift(a), a.ring.n]);
+    } else {
+      if (args.length !== 2) fail('use crt([r₁, r₂, ...], [m₁, m₂, ...]) ou crt(a, b, ...) com elementos de Zmod');
+      const rs = iterable(args[0]), ms = iterable(args[1]);
+      if (rs.length !== ms.length) fail('crt: listas de restos e de módulos com tamanhos diferentes');
+      pairs = rs.map((r, k) => {
+        const m = zz(ms[k], 'módulo');
+        if (ZZ.sgn(m) <= 0) fail('crt: os módulos devem ser positivos');
+        return [ZZ.op('fmpz_fdiv_r', zz(r, 'resto'), m), m];
+      });
+    }
+    const [x, M] = pairs.reduce(crt2, [int(0), int(1)]);
+    if (zmod) return Zmod(M).coerce(x);
+    let y = x;
+    // Representante simétrico em (−M/2, M/2].
+    if (kw.sign === true && compare(mul(x, int(2)), M, '>')) y = sub(x, M);
+    return kw.full === true ? new Tuple([y, M]) : y;
+  }, 'crt([r₁, ...], [m₁, ...], sign=false, full=false): x com x ≡ rᵢ (mod mᵢ); crt(a, b, ...) para elementos de Zmod');
   def('factorial', 1, ([n]) => vec((n) => {
     if (n instanceof Elem && n.ring !== ZZ) return env.lookup('gamma').impl([add(n, int(1))]);
     return ZZ.op('fmpz_fac_ui', ui(n, 'n'));

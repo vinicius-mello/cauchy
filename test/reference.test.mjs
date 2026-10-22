@@ -90,6 +90,8 @@ const ERRORS = [
   'implicitplot(3)', '(x, y) = gens(Zmod(5)[x, y]); implicitplot(x + y)', '(x, y, z) = gens(QQ[x, y, z]); implicitplot(x + z)',
   '(x, y) = gens(QQ[x, y]); implicitplot(0*x)', '(x, y) = gens(QQ[x, y]); implicitplot(x, resolution = 2)',
   '(x, y) = gens(QQ[x, y]); implicitplot(x, vars = [x, x])',
+  'crt([1, 2], [2, 4])', 'crt(Zmod(4)(1), Zmod(6)(2))', 'crt([1], [0])', 'crt([1, 2], [3])', 'crt([1/2], [3])', 'crt([1], [3], 2)',
+  'crt([1], [1/2])',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

@@ -15,6 +15,7 @@ fmpz_divisible             int            fmpz fmpz
 fmpz_pow_ui                fmpz           fmpz ui
 fmpz_powm                  fmpz           fmpz fmpz fmpz
 fmpz_invmod                fmpz           fmpz fmpz             ! elemento não inversível
+fmpz_CRT                   fmpz           fmpz fmpz fmpz fmpz si
 fmpz_gcd                   fmpz           fmpz fmpz
 fmpz_lcm                   fmpz           fmpz fmpz
 fmpz_cmp                   int            fmpz fmpz

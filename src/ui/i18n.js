@@ -203,6 +203,7 @@ const WORDS = {
   'gráfico': 'graphic', ponto: 'point', centro: 'center', raio: 'radius', 'ângulo': 'angle', 'início': 'start',
   matiz: 'hue', 'saturação': 'saturation', luminosidade: 'lightness', 'componente de cor': 'color component',
   deslocamento: 'displacement', fator: 'factor', 'entrada da matriz': 'matrix entry',
+  'módulo': 'modulus', resto: 'remainder',
 };
 const w = (s) => WORDS[s] ?? s;
 
@@ -237,6 +238,10 @@ const RULES = [
   [/^(\w+_mpoly) requer um polinômio de (.+)\[x, y, \.\.\.\] como argumento$/, '$1 requires a polynomial of $2[x, y, ...] as argument'],
   [/^(.+) requer um polinômio em várias variáveis como argumento$/, '$1 requires a multivariate polynomial as argument'],
   [/^avaliação grande demais$/, 'evaluation too large'],
+  [/^sistema sem solução: (.+) ≢ (.+) \(mod (.+)\)$/, 'system has no solution: $1 ≢ $2 (mod $3)'],
+  [/^use crt\(\[r₁, r₂, \.\.\.\], \[m₁, m₂, \.\.\.\]\) ou crt\(a, b, \.\.\.\) com elementos de Zmod$/, 'use crt([r₁, r₂, ...], [m₁, m₂, ...]) or crt(a, b, ...) with elements of Zmod'],
+  [/^crt: listas de restos e de módulos com tamanhos diferentes$/, 'crt: lists of remainders and moduli have different lengths'],
+  [/^crt: os módulos devem ser positivos$/, 'crt: moduli must be positive'],
   [/^implicitplot espera um polinômio em x e y$/, 'implicitplot expects a polynomial in x and y'],
   [/^implicitplot requer coeficientes em ZZ ou QQ$/, 'implicitplot requires coefficients in ZZ or QQ'],
   [/^implicitplot: p deve depender só de (.+) e (.+) \(usa também (.+)\)$/, 'implicitplot: p must depend only on $1 and $2 (also uses $3)'],
