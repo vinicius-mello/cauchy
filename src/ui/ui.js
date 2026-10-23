@@ -3,7 +3,8 @@
 
 import { render, ringName, esc } from './render.js';
 import { renderGraphics, handleKey } from './plot.js';
-import { highlight, symbolAt } from './highlight.js';
+import { highlight, symbolAt, KEYWORDS } from './highlight.js';
+import { typeChar, backspace, newline, wordBefore, identifiers, complete, callAt } from './editing.js';
 import { EXAMPLES, pick } from './examples.js';
 import { t, setLang, getLang, detectLang, applyStatic, translateError, SYNTAX_CODE, SYNTAX_NOTES } from './i18n.js';
 import { REF, CATEGORIES, ALIASES, flintDocUrl } from './reference.js';
@@ -91,6 +92,7 @@ function onWorker(msg) {
       state.ready = true;
       state.docs = msg.docs;
       state.builtins = new Set(msg.docs.map(([n]) => n));
+      state.docMap = null;
       state.sigs = msg.sigs ?? {};
       $('#version').textContent = msg.version;
       buildReference();
@@ -194,6 +196,7 @@ function buildCellEl(c) {
   ta.addEventListener('input', (ev) => {
     if (symbolize(ta, ev)) return;
     c.src = ta.value;
+    assistOnInput(ta, ev);
     refreshHighlight(c);
     autosize(c);
     markStale(c);
@@ -203,7 +206,10 @@ function buildCellEl(c) {
       c.timer = setTimeout(() => evalCell(c), AUTORUN_MS);
     }
   });
-  ta.addEventListener('keydown', (ev) => onKey(ev, c));
+  ta.addEventListener('keydown', (ev) => { if (!assistKey(ev, ta) && !editKey(ev, ta)) onKey(ev, c); });
+  ta.addEventListener('click', () => showSignature(ta));
+  ta.addEventListener('keyup', (ev) => { if (ev.key.startsWith('Arrow') && !state.assist?.items) showSignature(ta); });
+  ta.addEventListener('blur', closeAssist);
   ta.addEventListener('scroll', () => { $('.hl', el).scrollTop = ta.scrollTop; });
   el.addEventListener('click', (ev) => {
     const b = ev.target.closest('button[data-act]');
@@ -808,6 +814,241 @@ function symbolize(ta, ev) {
   return false;
 }
 
+// --------------------------------------------------------------- assistência
+
+// Aplica uma edição de editing.js. Usa execCommand para que Ctrl+Z desfaça;
+// o evento de entrada resultante atualiza a célula.
+function applyEdit(ta, r) {
+  ta.setSelectionRange(r.start, r.end);
+  if (r.start !== r.end || r.text) {
+    const ok = document.execCommand && document.execCommand(r.text ? 'insertText' : 'delete', false, r.text);
+    if (!ok) {
+      ta.setRangeText(r.text, r.start, r.end, 'end');
+      ta.dispatchEvent(new Event('input'));
+    }
+  }
+  ta.setSelectionRange(...r.sel);
+}
+
+// Pares de delimitadores, Backspace num par vazio e Enter com indentação.
+function editKey(ev, ta) {
+  if (ev.ctrlKey || ev.metaKey || ev.altKey || ev.isComposing) return false;
+  const s = ta.selectionStart, e = ta.selectionEnd;
+  let r = null;
+  if (ev.key.length === 1 && '()[]{}"'.includes(ev.key)) r = typeChar(ta.value, s, e, ev.key);
+  else if (ev.key === 'Backspace') r = backspace(ta.value, s, e);
+  else if (ev.key === 'Enter' && !ev.shiftKey) r = newline(ta.value, s, e);
+  if (!r) return false;
+  ev.preventDefault();
+  applyEdit(ta, r);
+  return true;
+}
+
+const docMap = () => (state.docMap ??= new Map(state.docs));
+
+// Assinatura de um nome: a da referência ou a do docstring da função.
+function signatureOf(name) {
+  const ref = REF.get(ALIASES[name] ?? name);
+  if (ref) return ref.sig;
+  const doc = docMap().get(name);
+  if (!doc) return null;
+  const k = doc.indexOf('): ');
+  return k >= 0 ? doc.slice(0, k + 1) : null;
+}
+
+// Elemento flutuante (lista de sugestões ou assinatura), junto ao cursor.
+function assistEl() {
+  let el = $('#assist');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'assist';
+    el.setAttribute('role', 'listbox');
+    el.hidden = true;
+    // Clicar numa sugestão não tira o foco do editor.
+    el.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();
+      const li = ev.target.closest('[data-k]');
+      if (li && state.assist?.items) { state.assist.idx = +li.dataset.k; acceptCompletion(); }
+    });
+    document.body.append(el);
+  }
+  return el;
+}
+
+// Posição do cursor na tela: espelho do editor com um marcador no ponto.
+function caretRect(ta, pos) {
+  const pre = document.createElement('pre');
+  pre.className = 'mirror';
+  pre.textContent = ta.value.slice(0, pos);
+  const mark = document.createElement('span');
+  mark.textContent = '​';
+  pre.append(mark);
+  ta.parentElement.append(pre);
+  const r = mark.getBoundingClientRect();
+  pre.remove();
+  return r;
+}
+
+function placeAssist(ta, pos) {
+  const el = assistEl();
+  el.hidden = false;
+  const r = caretRect(ta, pos);
+  const h = el.offsetHeight, w = el.offsetWidth;
+  const below = r.bottom + 2 + h <= window.innerHeight || r.top - h - 2 < 0;
+  el.style.top = `${below ? r.bottom + 2 : r.top - h - 2}px`;
+  el.style.left = `${Math.max(4, Math.min(r.left, window.innerWidth - w - 4))}px`;
+}
+
+function closeAssist() {
+  state.assist = null;
+  const el = $('#assist');
+  if (el) el.hidden = true;
+}
+
+// Candidatos: palavras-chave, funções embutidas e nomes do caderno.
+function candidates() {
+  const kind = new Map();
+  for (const c of state.cells) for (const n of identifiers(c.src)) kind.set(n, 'var');
+  for (const n of state.builtins) kind.set(n, 'bi');
+  for (const n of KEYWORDS) kind.set(n, 'kw');
+  return kind;
+}
+
+function showCompletions(ta, explicit = false) {
+  const pos = ta.selectionStart;
+  if (pos !== ta.selectionEnd) return closeAssist();
+  const w = wordBefore(ta.value, pos) ?? (explicit ? { word: '', start: pos } : null);
+  if (!w || (!explicit && w.word.length < 2)) return closeAssist();
+  // Não sugere no meio de uma palavra.
+  if (/[\p{L}\p{N}_']/u.test(ta.value[pos] ?? '')) return closeAssist();
+  const kind = candidates();
+  const items = complete(w.word, kind.keys(), explicit ? 30 : 12);
+  if (!items.length) return explicit ? showSignature(ta) : closeAssist();
+  // Enter só aceita depois de escolher com as setas (ou com Ctrl+Espaço),
+  // para não atrapalhar quem só quer mudar de linha; Tab sempre aceita.
+  state.assist = { ta, start: w.start, items, idx: 0, kind, chosen: explicit };
+  drawCompletions();
+  placeAssist(ta, w.start);
+}
+
+function drawCompletions() {
+  const a = state.assist;
+  const el = assistEl();
+  el.className = 'completions';
+  const lang = getLang();
+  el.innerHTML = a.items.map((n, k) => {
+    const sig = a.kind.get(n) === 'bi' ? signatureOf(n) : null;
+    const ref = k === a.idx ? REF.get(ALIASES[n] ?? n) : null;
+    const desc = ref ? `<div class="ac-desc">${esc(ref[lang] ?? ref.pt)}</div>` : '';
+    return `<div class="ac-item${k === a.idx ? ' sel' : ''}" data-k="${k}" role="option" aria-selected="${k === a.idx}">` +
+      `<span class="ac-name t-${a.kind.get(n)}">${esc(n)}</span>` +
+      (sig && sig !== n ? `<span class="ac-sig">${esc(sig)}</span>` : '') + desc + '</div>';
+  }).join('');
+  el.querySelector('.sel')?.scrollIntoView({ block: 'nearest' });
+}
+
+// Funções recebem parênteses (com o cursor dentro); constantes e anéis não.
+function isFunction(name) {
+  const sig = signatureOf(name);
+  return !!sig && sig.startsWith(name + '(');
+}
+
+function acceptCompletion() {
+  const a = state.assist;
+  const { ta } = a;
+  const name = a.items[a.idx];
+  const pos = ta.selectionStart;
+  if (wordBefore(ta.value, pos)?.start !== a.start) return closeAssist();
+  const call = a.kind.get(name) === 'bi' && isFunction(name) && ta.value[pos] !== '(';
+  const text = call ? name + '()' : name;
+  const at = a.start + name.length + (call ? 1 : 0);
+  closeAssist();
+  applyEdit(ta, { text, start: a.start, end: pos, sel: [at, at] });
+  closeAssist();
+  if (call) showSignature(ta);
+}
+
+// Navegação na lista de sugestões; Ctrl+Espaço abre a lista.
+function assistKey(ev, ta) {
+  if (ev.key === ' ' && (ev.ctrlKey || ev.metaKey)) {
+    ev.preventDefault();
+    showCompletions(ta, true);
+    return true;
+  }
+  const a = state.assist;
+  if (!a) return false;
+  if (ev.key === 'Escape') {
+    ev.preventDefault();
+    closeAssist();
+    return true;
+  }
+  if (!a.items) return false;
+  const mods = ev.ctrlKey || ev.metaKey || ev.altKey || ev.shiftKey;
+  if (ev.key === 'ArrowDown' || ev.key === 'ArrowUp') {
+    ev.preventDefault();
+    const n = a.items.length;
+    a.idx = (a.idx + (ev.key === 'ArrowDown' ? 1 : n - 1)) % n;
+    a.chosen = true;
+    drawCompletions();
+    return true;
+  }
+  if (((ev.key === 'Enter' && a.chosen) || ev.key === 'Tab') && !mods) {
+    ev.preventDefault();
+    acceptCompletion();
+    return true;
+  }
+  if (ev.key === 'Enter' || ev.key === 'ArrowLeft' || ev.key === 'ArrowRight') closeAssist();
+  return false;
+}
+
+// Assinatura da função cuja chamada contém o cursor, com o argumento
+// corrente em destaque.
+function showSignature(ta) {
+  const pos = ta.selectionStart;
+  const call = pos === ta.selectionEnd ? callAt(ta.value, pos) : null;
+  const sig = call && signatureOf(call.name);
+  if (!sig) return closeAssist();
+  const el = assistEl();
+  el.className = 'signature';
+  el.innerHTML = signatureHtml(sig, call.name, call.arg);
+  state.assist = { ta, sig: true };
+  placeAssist(ta, pos);
+}
+
+// Divide nas vírgulas de nível 0 (fora de parênteses e colchetes).
+function splitTop(s) {
+  const out = [];
+  let depth = 0, a = 0;
+  for (let k = 0; k < s.length; k++) {
+    if ('([{'.includes(s[k])) depth++;
+    else if (')]}'.includes(s[k])) depth--;
+    else if (s[k] === ',' && depth === 0) { out.push(s.slice(a, k)); a = k + 1; }
+  }
+  out.push(s.slice(a));
+  return out.map((x) => x.trim());
+}
+
+// A assinatura pode ter várias formas ("gen(R), gen(R, k)"): mostra a
+// primeira com argumentos suficientes.
+function signatureHtml(sig, name, arg) {
+  const forms = splitTop(sig).filter((f) => f.includes('('));
+  const parsed = forms.map((f) => {
+    const a = f.indexOf('('), b = f.lastIndexOf(')');
+    return { head: f.slice(0, a), args: b > a + 1 ? splitTop(f.slice(a + 1, b)) : [], tail: f.slice(b + 1) };
+  });
+  const form = parsed.find((p) => p.args.length > arg) ?? parsed[parsed.length - 1];
+  if (!form) return esc(sig);
+  const args = form.args.map((x, k) => (k === arg ? `<b>${esc(x)}</b>` : esc(x))).join(', ');
+  return `<span class="t-bi">${esc(form.head)}</span>(${args})${esc(form.tail)}`;
+}
+
+function assistOnInput(ta, ev) {
+  const typed = ev.inputType === 'insertText' && ev.data && /[\p{L}\p{N}_']$/u.test(ev.data);
+  if (typed || (ev.inputType?.startsWith('delete') && state.assist?.items)) showCompletions(ta);
+  else if (state.assist?.items) closeAssist();
+  if (!state.assist?.items) showSignature(ta);
+}
+
 // --------------------------------------------------------------- tema
 
 // Tema efetivo: escolha salva (data-theme) ou, sem ela, o do sistema.
@@ -880,6 +1121,7 @@ async function main() {
     if (ev.key === '.' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); interrupt(); }
   });
   window.addEventListener('resize', () => state.cells.forEach(autosize));
+  window.addEventListener('scroll', closeAssist, true);
 
   startWorker();
   const nb = await initialNotebook();

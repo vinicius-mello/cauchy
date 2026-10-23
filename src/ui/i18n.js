@@ -92,7 +92,8 @@ complexos (<code>1 + 2i</code>) ou tuplas <code>(x, y)</code> e atributos nomead
 <code>p = handle(1 + i)</code> cria um ponto arrastável: todo gráfico que recebe <code>p</code>
 mostra um marcador que pode ser movido com o mouse, e as células dependentes acompanham.</p>
 <p><kbd>Shift</kbd>+<kbd>Enter</kbd> avalia · <kbd>Alt</kbd>+<kbd>Enter</kbd> nova célula ·
-<kbd>Ctrl</kbd>+<kbd>.</kbd> interrompe</p>`,
+<kbd>Ctrl</kbd>+<kbd>.</kbd> interrompe ·
+<kbd>Ctrl</kbd>+<kbd>Espaço</kbd> sugestões (<kbd>Tab</kbd> ou <kbd>Enter</kbd> aceita)</p>`,
   en: `<p>Integers and rationals are exact. Decimals and transcendental functions produce
 <em>balls</em>: approximations with a guaranteed error radius (Arb). Comparisons that the
 current precision cannot decide raise an error — increase <code>prec</code>.</p>
@@ -113,7 +114,8 @@ complex numbers (<code>1 + 2i</code>) or tuples <code>(x, y)</code> and keyword 
 <code>p = handle(1 + i)</code> creates a draggable point: every plot that receives <code>p</code>
 shows a marker you can move with the mouse, and dependent cells follow.</p>
 <p><kbd>Shift</kbd>+<kbd>Enter</kbd> evaluates · <kbd>Alt</kbd>+<kbd>Enter</kbd> new cell ·
-<kbd>Ctrl</kbd>+<kbd>.</kbd> interrupts</p>`,
+<kbd>Ctrl</kbd>+<kbd>.</kbd> interrupts ·
+<kbd>Ctrl</kbd>+<kbd>Space</kbd> suggestions (<kbd>Tab</kbd> or <kbd>Enter</kbd> accepts)</p>`,
 };
 
 export const SYNTAX_CODE = {

@@ -177,6 +177,25 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width
   outline: none;
 }
 .editor textarea::selection { background: color-mix(in srgb, var(--accent) 25%, transparent); color: transparent; }
+/* espelho invisível para medir a posição do cursor */
+.editor pre.mirror { position: absolute; inset: 0; visibility: hidden; }
+
+/* sugestões e assinatura junto ao cursor */
+#assist {
+  position: fixed; z-index: 50; max-width: min(560px, calc(100vw - 8px));
+  background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+  box-shadow: 0 4px 14px rgb(0 0 0 / .14); font: 13px/1.45 var(--mono);
+}
+#assist[hidden] { display: none; }
+#assist.completions { max-height: 260px; overflow-y: auto; padding: 3px 0; }
+#assist.signature { padding: 3px 8px; white-space: pre-wrap; }
+#assist.signature b { color: var(--accent); }
+.ac-item { padding: 1px 8px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ac-item.sel { background: var(--accent-soft); white-space: normal; }
+.ac-name { font-weight: 500; }
+.ac-sig { color: var(--muted); margin-left: 10px; font-size: 12px; }
+.ac-desc { font: 12px/1.4 var(--sans); color: var(--muted); margin: 1px 0 3px; white-space: normal; }
+
 .t-kw { color: var(--t-kw); font-weight: 500; }
 .t-num { color: var(--t-num); }
 .t-s { color: var(--t-str); }

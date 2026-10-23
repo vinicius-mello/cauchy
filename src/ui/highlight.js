@@ -2,7 +2,7 @@
 
 import { esc } from './render.js';
 
-const KEYWORDS = new Set(['let', 'in', 'if', 'then', 'else', 'match', 'with', 'and', 'or', 'not', 'true', 'false', 'by']);
+export const KEYWORDS = new Set(['let', 'in', 'if', 'then', 'else', 'match', 'with', 'and', 'or', 'not', 'true', 'false', 'by']);
 const RINGS = new Set(['ZZ', 'QQ', 'RR', 'CC', 'ℤ', 'ℚ', 'ℝ', 'ℂ']);
 
 const TOKEN = /(#[^\n]*)|("(?:\\.|[^"\\])*"?)|(\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?)|([\p{L}_][\p{L}\p{N}_']*)|(\|>|->|=>|<-|==|!=|<=|>=|\.\.\.|\.\.|\/\/|[-+*/^%!=<>|∘√·×≤≥≠→←⇒▷])|(\s+)|(.)/gsu;
