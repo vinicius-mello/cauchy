@@ -113,6 +113,11 @@ test('pontos de controle: arraste, vértices arrastáveis e restrições', () =>
   // snap: valor exato na grade.
   d = byIdDisplay(nb.setWidget('b', 0, { from: d.b?.spec.from ?? '-1', at: ['0.537', '-0.444'] }));
   assert.equal(d.b.value.text, '0.5 - 0.5·i');
+  // Tupla com snap racional: coordenadas racionais exatas.
+  d = byIdDisplay(nb.update([{ id: 'r', src: 'r = handle((0, 0), snap = 1/3)' }, { id: 's', src: 'r' }]));
+  d = byIdDisplay(nb.setWidget('r', 0, { from: d.r.spec.from, at: ['0.7', '-0.3'] }));
+  assert.equal(d.r.value.text, '(2/3, -1/3)');
+  assert.equal(toText(d.s), '(2/3, -1/3)');
   // Editar o ponto inicial no código reposiciona.
   d = byIdDisplay(nb.update([{ id: 'a', src: 'p = handle(2)' }]));
   assert.equal(d.a.value.text, '2');

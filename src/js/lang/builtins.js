@@ -2287,13 +2287,18 @@ export function makeGlobals() {
   };
   const snapTo = (q, snap) => (snap ? mul(int(Math.round(toNum(q) / toNum(snap))), snap) : q);
   // Ponto (cópia nova, para não marcar valores compartilhados) a partir do
-  // valor inicial ou da posição arrastada; aplica snap, limites e on.
-  const handlePoint = (init, at, o) => {
+  // valor inicial ou da posição arrastada; aplica snap, limites e on. Com
+  // tuple, o ponto é a tupla (x, y) e as posições arrastadas são racionais
+  // exatos (múltiplos de snap); senão, um complexo.
+  const handlePoint = (init, at, o, tuple) => {
     let z;
-    if (at) z = CC.fromParts(RR.coerce(snapTo(decimal(at[0], o.xlim), o.snap)), RR.coerce(snapTo(decimal(at[1], o.ylim), o.snap)));
-    else {
+    if (at) {
+      const x = snapTo(decimal(at[0], o.xlim), o.snap), y = snapTo(decimal(at[1], o.ylim), o.snap);
+      z = tuple ? new Tuple([x, y]) : CC.fromParts(RR.coerce(x), RR.coerce(y));
+    } else {
       pt(init, 'ponto inicial');
-      z = init instanceof Tuple ? CC.fromParts(RR.coerce(init.items[0]), RR.coerce(init.items[1])) : CC.op('acb_set', CC.coerce(init));
+      if (tuple) z = new Tuple([...init.items]);
+      else z = init instanceof Tuple ? CC.fromParts(RR.coerce(init.items[0]), RR.coerce(init.items[1])) : CC.op('acb_set', CC.coerce(init));
     }
     if (o.on) {
       const w = callValue(o.on, [z]);
@@ -2323,10 +2328,10 @@ export function makeGlobals() {
     const prev = c.widgets[i];
     const raw = prev && prev.kind === 'handle' && prev.value && prev.value.from === from ? prev.value : null;
     c.widgets[i] = { kind: 'handle', value: raw };
-    const z = handlePoint(init, raw && raw.at, o);
+    const z = handlePoint(init, raw && raw.at, o, init instanceof Tuple);
     HANDLE_OF.set(z, { id: c.cellId, index: i, from, snap: o.snap ? toNum(o.snap) : null });
-    return new Widget('handle', { ...handleSpec(o, kw, from), index: i }, z, { text: pointText(pt(z)), at: pt(z) });
-  }, 'handle(z₀, snap=, xlim=, ylim=, on=): ponto de controle arrastável nos gráficos');
+    return new Widget('handle', { ...handleSpec(o, kw, from), index: i }, z, { text: z instanceof Tuple ? showText(z) : pointText(pt(z)), at: pt(z) });
+  }, 'handle(z₀, snap=, xlim=, ylim=, on=): ponto de controle arrastável nos gráficos; com z₀ = (x, y), devolve uma tupla de racionais');
   def('handles', 1, ([zs], kw) => {
     const c = currentContext();
     const o = handleOpts(kw);
@@ -2340,15 +2345,16 @@ export function makeGlobals() {
     c.widgets[i] = { kind: 'handles', value: raw };
     // Entradas: número k = k-ésimo ponto inicial; [x, y] = posição arrastada.
     const entries = raw ? raw.pts : inits.map((_, k) => k);
+    const tuple = inits.length > 0 && inits.every((z) => z instanceof Tuple);
     const base = { id: c.cellId, index: i, from, entries, snap: o.snap ? toNum(o.snap) : null, min };
     const vs = entries.map((e, k) => {
-      const z = typeof e === 'number' ? handlePoint(inits[e], null, o) : handlePoint(null, e, o);
+      const z = typeof e === 'number' ? handlePoint(inits[e], null, o, tuple) : handlePoint(null, e, o, tuple);
       HANDLE_OF.set(z, { ...base, sub: k });
       return z;
     });
     HANDLE_OF.set(vs, { ...base, list: true, add: kw.add === true, max: Number.isFinite(max) ? max : null });
     const at = vs.map((z) => pt(z));
-    return new Widget('handles', { ...handleSpec(o, kw, from), index: i }, vs, { text: `[${at.map(pointText).join(', ')}]`, at });
+    return new Widget('handles', { ...handleSpec(o, kw, from), index: i }, vs, { text: tuple ? showText(vs) : `[${at.map(pointText).join(', ')}]`, at });
   }, 'handles([z₁, …], add=false, min=, max=, snap=, ...): lista de pontos de controle');
   def('checkbox', null, (args, kw) => widget('checkbox', { label: kw.label ?? null }, kw.value === true, (v) => !!v), 'checkbox(value=false)');
   def('textinput', null, (args, kw) => widget('text', { label: kw.label ?? null }, kw.value ?? '', (v) => String(v)), 'textinput(value=""): campo de texto');
