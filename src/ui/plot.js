@@ -149,19 +149,21 @@ function markerPath(points, kind, r) {
   return d;
 }
 
-export function renderGraphics(d, avail = 640) {
+// ui.view: janela fixa {x0, x1, y0, y1, width, height} (durante o arraste de
+// pontos de controle); ui.interact: gestos sobre os pontos (ver ui.js).
+export function renderGraphics(d, avail = 640, ui = {}) {
   const o = d.opts ?? {};
   const leaves = flatten(d.items, {}, []);
   const axes = o.axes !== false, grid = o.grid !== false, frame = o.frame !== false;
-  const width = Math.round(o.width ?? avail);
+  const width = ui.view ? ui.view.width : Math.round(o.width ?? avail);
   const m = axes ? { l: 52, r: 16, t: o.title ? 28 : 12, b: 30 } : { l: 12, r: 12, t: o.title ? 28 : 12, b: 12 };
   const W = width - m.l - m.r;
 
-  let [x0, x1, y0, y1] = bounds(leaves) ?? [-1, 1, -1, 1];
-  if (o.xlim) [x0, x1] = o.xlim;
-  if (o.ylim) [y0, y1] = o.ylim;
-  const equal = o.aspect !== 'auto';
-  let height = o.height;
+  let [x0, x1, y0, y1] = ui.view ? [ui.view.x0, ui.view.x1, ui.view.y0, ui.view.y1] : bounds(leaves) ?? [-1, 1, -1, 1];
+  if (o.xlim && !ui.view) [x0, x1] = o.xlim;
+  if (o.ylim && !ui.view) [y0, y1] = o.ylim;
+  const equal = o.aspect !== 'auto' && !ui.view;
+  let height = ui.view ? ui.view.height : o.height;
   if (!height) {
     // Em escala igual, a altura acompanha a proporção da região desenhada.
     const H = equal ? (W * (y1 - y0)) / (x1 - x0) : width * 0.55;
@@ -222,8 +224,58 @@ export function renderGraphics(d, avail = 640) {
     });
   }
 
+  svg.cauchyView = { x0, x1, y0, y1, width, height, m, W, H };
   hover(svg, leaves, { width, height, x0, x1, y0, y1, X, Y, W, H, m });
+  handles(svg, leaves, { X, Y, x0, x1, y0, y1, m, W, H, width, height }, ui.interact);
   return svg;
+}
+
+export const handleKey = (h) => `${h.id}:${h.index}:${h.sub ?? ''}`;
+
+// Marcadores dos pontos de controle (por cima de tudo, fora do recorte) e
+// gestos: arrastar, setas do teclado, Alt+clique remove de uma lista e clique
+// no fundo acrescenta a uma lista com add = true.
+function handles(svg, leaves, { X, Y, x0, x1, y0, y1, m, W, H, width, height }, interact) {
+  const list = leaves.find((it) => it.dragList && it.dragList.add);
+  const hs = el('g', { class: 'handles' }, svg);
+  const seen = new Set();
+  for (const it of leaves) {
+    for (const h of it.drag ?? []) {
+      const p = h.k === 'c' ? it.c : h.k === 'p' ? it.p : it.pts[h.k];
+      if (!p || p[0] < x0 || p[0] > x1 || p[1] < y0 || p[1] > y1) continue;
+      const key = handleKey(h);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const g = el('g', { class: 'handle', tabindex: 0, 'data-h': key, transform: `translate(${X(p[0]).toFixed(2)},${Y(p[1]).toFixed(2)})` }, hs);
+      el('circle', { r: 12, class: 'hit' }, g);
+      el('circle', { r: 5, class: 'knob', style: `stroke:${paint(it.attrs.color)}` }, g);
+      if (!interact) continue;
+      g.addEventListener('pointerdown', (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        if (ev.altKey && h.entries) interact.remove(h, svg);
+        else interact.down(h, ev, svg);
+      });
+      g.addEventListener('keydown', (ev) => {
+        const dir = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[ev.key];
+        if (!dir) return;
+        ev.preventDefault();
+        interact.nudge(h, p, dir, ev.shiftKey, svg);
+      });
+    }
+  }
+  if (list && interact) {
+    svg.classList.add('addable');
+    svg.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0 || ev.altKey) return;
+      const rect = svg.getBoundingClientRect();
+      const px = ((ev.clientX - rect.left) / rect.width) * width;
+      const py = ((ev.clientY - rect.top) / rect.height) * height;
+      if (px < m.l || px > m.l + W || py < m.t || py > m.t + H) return;
+      interact.add(list, [x0 + ((px - m.l) / W) * (x1 - x0), y1 - ((py - m.t) / H) * (y1 - y0)], svg);
+      ev.preventDefault();
+    });
+  }
 }
 
 function markerStyle(a) {

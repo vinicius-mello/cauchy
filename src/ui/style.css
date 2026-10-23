@@ -252,9 +252,19 @@ sup { font-size: .68em; line-height: 0; }
 .plot .tick { font-size: 11px; fill: var(--muted); }
 .plot .ptitle { font-size: 13px; fill: var(--ink); }
 .plot .gtext { font-family: var(--sans); }
+.plot .hover { pointer-events: none; }
 .plot .hover line { stroke: var(--muted); stroke-dasharray: 3 3; }
 .plot .hover circle { fill: var(--accent); }
 .plot .hoverlabel { fill: var(--ink); }
+.plot .handle { cursor: grab; outline: none; touch-action: none; }
+.plot .handle .hit { fill: transparent; }
+.plot .handle .knob { fill: var(--paper); stroke-width: 2; }
+.plot .handle:hover .knob, .plot .handle:focus-visible .knob { fill: var(--accent-soft); stroke-width: 2.5; }
+.plot .handle.active .knob { fill: var(--accent); }
+.plot.addable { cursor: crosshair; }
+body.dragging, body.dragging * { cursor: grabbing !important; user-select: none; }
+.widget .xy { margin-left: 1em; color: var(--muted); font-size: 0.9em; }
+.widget input.coord { width: 7em; font-family: var(--mono); }
 
 /* ---------------------------------------------------------------- widgets */
 .widget label { display: flex; align-items: center; gap: 10px; font-size: 14px; flex-wrap: wrap; }

@@ -88,7 +88,9 @@ equivalentes, assim como <code>·</code> e <code>×</code> para <code>*</code>.<
 complexos (<code>1 + 2i</code>) ou tuplas <code>(x, y)</code> e atributos nomeados
 (<code>color</code>, <code>fill</code>, <code>width</code>, <code>dash</code>, <code>opacity</code>,
 <code>size</code>, <code>marker</code>, <code>label</code>, <code>fontsize</code>). Combine com
-<code>+</code> ou numa lista; <code>draw</code> ajusta a janela.</p>
+<code>+</code> ou numa lista; <code>draw</code> ajusta a janela.
+<code>p = handle(1 + i)</code> cria um ponto arrastável: todo gráfico que recebe <code>p</code>
+mostra um marcador que pode ser movido com o mouse, e as células dependentes acompanham.</p>
 <p><kbd>Shift</kbd>+<kbd>Enter</kbd> avalia · <kbd>Alt</kbd>+<kbd>Enter</kbd> nova célula ·
 <kbd>Ctrl</kbd>+<kbd>.</kbd> interrompe</p>`,
   en: `<p>Integers and rationals are exact. Decimals and transcendental functions produce
@@ -107,7 +109,9 @@ equivalent, as are <code>·</code> and <code>×</code> for <code>*</code>.</p>
 complex numbers (<code>1 + 2i</code>) or tuples <code>(x, y)</code> and keyword attributes
 (<code>color</code>, <code>fill</code>, <code>width</code>, <code>dash</code>, <code>opacity</code>,
 <code>size</code>, <code>marker</code>, <code>label</code>, <code>fontsize</code>). Combine them with
-<code>+</code> or in a list; <code>draw</code> sets the window.</p>
+<code>+</code> or in a list; <code>draw</code> sets the window.
+<code>p = handle(1 + i)</code> creates a draggable point: every plot that receives <code>p</code>
+shows a marker you can move with the mouse, and dependent cells follow.</p>
 <p><kbd>Shift</kbd>+<kbd>Enter</kbd> evaluates · <kbd>Alt</kbd>+<kbd>Enter</kbd> new cell ·
 <kbd>Ctrl</kbd>+<kbd>.</kbd> interrupts</p>`,
 };
@@ -129,6 +133,7 @@ R = QQ[x]; x = gen(R) # polinômios
 A = [1, 2; 3, 4]      # matriz
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # entrada reativa
+p = handle(1 + i)     # ponto arrastável
 circle(0, 1, color = "red") + point(1/2 + i/2)
 flint("arb_gamma", 1/3)   # FLINT direto`,
   en: `n = 2^64 + 1          # definition
@@ -147,6 +152,7 @@ R = QQ[x]; x = gen(R) # polynomials
 A = [1, 2; 3, 4]      # matrix
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # reactive input
+p = handle(1 + i)     # draggable point
 circle(0, 1, color = "red") + point(1/2 + i/2)
 flint("arb_gamma", 1/3)   # raw FLINT call`,
 };
@@ -203,7 +209,7 @@ const WORDS = {
   'gráfico': 'graphic', ponto: 'point', centro: 'center', raio: 'radius', 'ângulo': 'angle', 'início': 'start',
   matiz: 'hue', 'saturação': 'saturation', luminosidade: 'lightness', 'componente de cor': 'color component',
   deslocamento: 'displacement', fator: 'factor', 'entrada da matriz': 'matrix entry',
-  'módulo': 'modulus', resto: 'remainder',
+  'módulo': 'modulus', resto: 'remainder', 'ponto inicial': 'initial point',
 };
 const w = (s) => WORDS[s] ?? s;
 
@@ -265,6 +271,11 @@ const RULES = [
   [/^interpolate: pontos repetidos$/, 'interpolate: repeated points'],
   [/^sqfree não suportado em (.+)$/, 'sqfree not supported in $1'],
   [/^stieltjes\(n\) requer n ≥ 0$/, 'stieltjes(n) requires n ≥ 0'],
+  [/^snap deve ser um racional positivo, como 1\/10$/, 'snap must be a positive rational, such as 1/10'],
+  [/^posição inválida para o ponto de controle$/, 'invalid position for the control point'],
+  [/^rationalize espera um número real \(use re e im\)$/, 'rationalize expects a real number (use re and im)'],
+  [/^rationalize espera um número real$/, 'rationalize expects a real number'],
+  [/^a bola não é finita$/, 'the ball is not finite'],
   [/^integrate espera uma função, como t -> exp\(-t\^2\)$/, 'integrate expects a function, such as t -> exp(-t^2)'],
   [/^integrate: o caminho precisa de pelo menos dois pontos$/, 'integrate: the path needs at least two points'],
   [/^integrate: os extremos devem ser números reais ou complexos$/, 'integrate: the endpoints must be real or complex numbers'],

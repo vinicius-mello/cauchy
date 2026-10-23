@@ -26,6 +26,7 @@ const cases = [
   ['crt([-1, -1], [10, 21], sign = true), crt([], [], full = true), crt([5], [3])', '(-1, (0, 1), 2)'],
   ['crt(Zmod(3)(2), Zmod(5)(3)), ring(crt([Zmod(4)(1), Zmod(6)(3)]))', '(8, Zmod(12))'],
   ['kronecker(5, 12), kronecker(-1, 7), ratrecon(Zmod(10007)(2)/3)', '(-1, -1, 2/3)'],
+  ['rationalize(0.829 + 0*i), rationalize(RR(1/3)), rationalize(pi, 1/1000), rationalize(-RR(7/3)), with digits = 5: rationalize(pi)', '(829/1000, 1/3, 333/106, -7/3, 355/113)'],
   ['contfrac(415/93), contfrac(sqrt(2), 6), fromcontfrac([4, 2, 6, 7])', '([4, 2, 6, 7], [1, 2, 2, 2, 2, 2], 415/93)'],
   ['convergents(pi, 5), with digits = 60: len(contfrac(pi)) > 50', '([3, 22/7, 333/106, 355/113, 103993/33102], true)'],
   ['perfectpower(2^60), perfectpower(-27), perfectpower(12), isperfectpower(1000), isperfectpower(10)', '((2, 60), (-3, 3), (12, 1), true, false)'],

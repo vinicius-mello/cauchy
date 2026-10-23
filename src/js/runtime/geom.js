@@ -61,6 +61,11 @@ function toLine(it, n) {
   return { g: 'line', pts, attrs };
 }
 
+// Transformações não preservam pontos de controle (o arraste exigiria a inversa).
+export function stripDrag(items) {
+  return items.map(({ drag, dragList, ...it }) => (it.g === 'group' ? { ...it, items: stripDrag(it.items) } : it));
+}
+
 export function affineItems(items, M) {
   const sim = similarity(M);
   const axis = M[1] === 0 && M[2] === 0;
@@ -82,7 +87,7 @@ export function affineItems(items, M) {
     if (!axis || M[0] <= 0) delete out.data;
     return out;
   };
-  return items.map(map);
+  return stripDrag(items.map(map));
 }
 
 // Subdivide cada segmento em k partes (preservando lacunas nulas).
@@ -145,5 +150,5 @@ export function mapItems(items, f, { steps = null, budget = 2000, maxTotal = 200
       }
     }
   };
-  return items.map(map).filter(Boolean);
+  return stripDrag(items.map(map).filter(Boolean));
 }

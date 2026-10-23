@@ -111,6 +111,7 @@ const ERRORS = [
   'gegenbauerc(1)', 'chebyshevt(1, 2, 3)',
   'integrate(3, 0, 1)', 'integrate(t -> t, [1])', 'integrate(t -> t, "a", 1)', 'integrate(t -> "a", 0, 1)',
   'integrate(t -> 1/t, -1, 1)', 'integrate(t -> log(t), 0, 1)', 'integrate(t -> sin(t)/t, 0, 1)',
+  'handle(0, snap = -1)', 'handle("a")', 'handles([0, "a"])', 'rationalize(i)', 'rationalize("a")', 'handle(0, on = 3)',
 ];
 
 test('mensagens de erro têm tradução para inglês', () => {

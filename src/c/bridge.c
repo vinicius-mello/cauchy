@@ -1151,3 +1151,21 @@ EMSCRIPTEN_KEEPALIVE void cy_acb_set_into(acb_t dst, const acb_t src)
 {
     acb_set(dst, src);
 }
+
+/* Ponto médio e raio de uma bola como racionais exatos: [m, r]. */
+EMSCRIPTEN_KEEPALIVE intptr_t *cy_arb_mid_rad_fmpq(const arb_t x)
+{
+    if (!arb_is_finite(x))
+        cy_error("a bola não é finita");
+    fmpq *m = cy_new_fmpq(NULL), *r = cy_new_fmpq(NULL);
+    arf_get_fmpq(m, arb_midref(x));
+    arf_t t;
+    arf_init(t);
+    arf_set_mag(t, arb_radref(x));
+    arf_get_fmpq(r, t);
+    arf_clear(t);
+    intptr_t *v = cy_vec_new(2);
+    v[1] = (intptr_t) m;
+    v[2] = (intptr_t) r;
+    return v;
+}

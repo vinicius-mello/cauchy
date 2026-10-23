@@ -181,7 +181,7 @@ export function toText(d) {
       if (d.re.mid === '0' && !d.re.rad) return !d.im.rad && d.im.mid === '1' ? 'i' : !d.im.rad && d.im.mid === '-1' ? '-i' : `${im}·i`;
       const imS = d.im.rad ? `(${im})` : im.startsWith('-') ? im.slice(1) : im;
       const op = !d.im.rad && im.startsWith('-') ? '-' : '+';
-      return `${ballText(d.re)} ${op} ${imS}·i`;
+      return `${ballText(d.re)} ${op} ${imS === '1' ? 'i' : `${imS}·i`}`;
     }
     case 'gf': return d.s;
     case 'poly': case 'mpoly': {
@@ -219,7 +219,7 @@ export function toText(d) {
     case 'fn': return d.name ? `<função ${d.name}>` : '<função>';
     case 'ring': return d.s;
     case 'graphics': return '<gráfico>';
-    case 'widget': return toText(d.value);
+    case 'widget': return d.value && typeof d.value === 'object' ? (d.value.text ?? toText(d.value)) : String(d.value);
     default: return `<${d.t}>`;
   }
 }

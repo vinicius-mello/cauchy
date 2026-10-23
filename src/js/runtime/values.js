@@ -56,6 +56,11 @@ export function asGraphic(v) {
   return acc;
 }
 
+// Pontos de controle: valor (objeto) → origem {id, index, sub?} do widget que o
+// criou. Um primitivo gráfico que recebe o próprio valor torna o vértice
+// arrastável; valores derivados (p + 1) são objetos novos e não arrastam.
+export const HANDLE_OF = new WeakMap();
+
 // Widget de entrada: o valor corrente vem da UI.
 export class Widget {
   constructor(kind, spec, value, valueDisplay) {

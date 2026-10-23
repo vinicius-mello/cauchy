@@ -95,6 +95,28 @@ export const EXAMPLES = [
     ],
   },
   {
+    title: { pt: 'Pontos de controle', en: 'Control points' },
+    cells: [
+      { pt: '# handle(z) é um ponto arrastável: arraste os vértices nos gráficos\n# (ou edite x e y). Valores derivados, como o circuncentro, acompanham.\na = handle(-2 - i)', en: '# handle(z) is a draggable point: drag the vertices in the plots\n# (or edit x and y). Derived values, such as the circumcenter, follow.\na = handle(-2 - i)' },
+      'b = handle(2 - i)',
+      'c = handle(1/2 + 3i/2)',
+      'circumcenter(a, b, c) = (abs(a)^2*(b - c) + abs(b)^2*(c - a) + abs(c)^2*(a - b)) / (conj(a)*(b - c) + conj(b)*(c - a) + conj(c)*(a - b))',
+      'o = circumcenter(a, b, c)',
+      'polygon([a, b, c], color = 2) + circle(o, abs(a - o), dash = "dot") + point(o) + point((a + b + c)/3, color = 3) + text("o", o, pos = "ne")',
+      { pt: '# Curva de Bézier: clique no fundo para acrescentar pontos de controle, Alt+clique remove\nctrl = handles([-2, -1 + 2i, 1 - 2i, 2], add = true)', en: '# Bézier curve: click the background to add control points, Alt+click removes\nctrl = handles([-2, -1 + 2i, 1 - 2i, 2], add = true)' },
+      'bez(ps, t) = if len(ps) == 1 then ps[1] else bez([(1 - t)*ps[k] + t*ps[k + 1] | k <- 1..len(ps) - 1], t)',
+      'line(ctrl, dash = "dot", color = 3) + curve(t -> bez(ctrl, t), 0, 1, color = 1)',
+      { pt: '# A cônica pelos cinco pontos: núcleo de uma matriz 5×6 exata (rationalize)\nps = handles([-2, -1 + 3i/2, 1 + 3i/2, 2, 1/2 - i])', en: '# The conic through five points: kernel of an exact 5×6 matrix (rationalize)\nps = handles([-2, -1 + 3i/2, 1 + 3i/2, 2, 1/2 - i])' },
+      '(X, Y) = gens(QQ[x, y])',
+      'row(z) = let u = rationalize(re(z)), v = rationalize(im(z)) in [u^2, u*v, v^2, u, v, 1]',
+      'conic = dot(nullspace(matrix(map(ps, row)))[1], [X^2, X*Y, Y^2, X, Y, 1])',
+      'implicitplot(conic, xlim = [-4, 4]) + points(ps)',
+      { pt: '# on = f restringe o ponto: aqui, ao círculo unitário\nu = handle(1/2 + i/2, on = z -> z/abs(z))', en: '# on = f constrains the point: here, to the unit circle\nu = handle(1/2 + i/2, on = z -> z/abs(z))' },
+      'θ = arg(u)',
+      'circle(0, 1, dash = "dot") + segment(0, 1) + segment(0, u) + text(str(round(θ*180/pi)) + "°", u/2, pos = "nw") + point(u)',
+    ],
+  },
+  {
     title: { pt: 'FLINT direto', en: 'Raw FLINT' },
     cells: [
       { pt: '# Qualquer função da aba FLINT da referência pode ser chamada\n# diretamente; prec e contexto são preenchidos automaticamente.\nflint("arb_gamma", 1/3)', en: '# Any function from the FLINT tab of the reference can be called\n# directly; prec and context are filled in automatically.\nflint("arb_gamma", 1/3)' },

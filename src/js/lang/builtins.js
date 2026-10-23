@@ -6,7 +6,7 @@ import {
   Zmod, GF, Poly, MPoly, Mat, flint, commonRing, coerce, isScalarRing, finiteOr,
   add, sub, mul, div, neg, pow, compare, equal, divrem, mdivrem, inv, matInv, floor, ceil, sign, isZero, unionValues,
 } from '../runtime/rings.js';
-import { Tuple, Func, Factored, Graphic, Widget, UNIT, asGraphic } from '../runtime/values.js';
+import { Tuple, Func, Factored, Graphic, Widget, UNIT, asGraphic, HANDLE_OF } from '../runtime/values.js';
 import { fail, NonAnalytic } from '../runtime/errors.js';
 import { affine, affineItems, mapItems } from '../runtime/geom.js';
 import { zeroSet } from '../runtime/implicit.js';
@@ -475,6 +475,29 @@ export function makeGlobals() {
     }
     return out;
   }, 'convergents(x, n): reduzidas da fração contínua de x (ou de uma lista de termos)');
+  def('rationalize', null, ([x, tol]) => {
+    elem(x);
+    if (x.ring === ZZ || x.ring === QQ) return x;
+    if (x.ring === CC) {
+      if (!bool(CC.op('acb_is_real', x))) fail('rationalize espera um número real (use re e im)');
+      x = CC.re(x);
+    }
+    if (x.ring !== RR) fail('rationalize espera um número real');
+    // A bola é [m − r, m + r] com m e r racionais exatos: a primeira reduzida
+    // de m a distância ≤ r (+ tol) é a fração mais simples aceitável.
+    const F = flint();
+    const [m, r] = F.vec(F.raw('arb_mid_rad_fmpq', x.ptr)).map((q) => QQ.wrap(q));
+    const bound = tol === undefined ? r : add(r, coerce(elem(tol), QQ));
+    let [h1, h2, k1, k2] = [int(1), int(0), int(0), int(1)];
+    let c = null;
+    for (const a of cfrac(m)) {
+      [h1, h2] = [add(mul(a, h1), h2), h1];
+      [k1, k2] = [add(mul(a, k1), k2), k1];
+      c = div(h1, k1);
+      if (compare(env.lookup('abs').impl([sub(c, m)]), bound, '<=')) return c;
+    }
+    return c;
+  }, 'rationalize(x, tol): fração mais simples na bola x (ou a distância ≤ tol)');
   // n = b^k com k máximo.
   const perfectPower = (n) => {
     const F = flint();
@@ -1896,6 +1919,7 @@ export function makeGlobals() {
   };
   // Ponto do plano: número (real ou complexo) ou tupla (x, y).
   const pt = (p, what = 'ponto') => {
+    if (p instanceof Widget) p = p.value;
     if (p instanceof Tuple && p.items.length === 2) {
       const xy = p.items.map(toNum);
       if (xy.every(Number.isFinite)) return xy;
@@ -1916,9 +1940,26 @@ export function makeGlobals() {
     return pt(v);
   };
   const pts = (ps, min, what = 'pontos') => {
-    const out = list(ps).map((p) => pt(p));
+    const out = list(unw(ps)).map((p) => pt(p));
     if (out.length < min) fail(`${what}: esperava pelo menos ${min} pontos`);
     return out;
+  };
+  // Pontos de controle: vértices cujo valor de entrada é o próprio valor de um
+  // handle ficam arrastáveis (drag); a lista de handles(...) recebida inteira
+  // permite acrescentar e remover pontos (dragList).
+  const unw = (v) => (v instanceof Widget ? v.value : v);
+  const handleOf = (v) => (v !== null && typeof v === 'object' ? HANDLE_OF.get(unw(v)) : undefined);
+  const drags = (pairs) => {
+    const out = pairs.flatMap(([k, v]) => {
+      const h = handleOf(v);
+      return h && !h.list ? [{ k, ...h }] : [];
+    });
+    return out.length ? { drag: out } : {};
+  };
+  const ptsDrag = (ps) => {
+    const raw = list(unw(ps)).map(unw);
+    const h = handleOf(ps);
+    return { ...drags(raw.map((v, k) => [k, v])), ...(h && h.list ? { dragList: h } : {}) };
   };
   const real = (v, what) => {
     const x = toNum(v);
@@ -1990,25 +2031,26 @@ export function makeGlobals() {
     return [a, b];
   };
 
-  def('point', 1, ([p], kw) => prim('points', { pts: [pt(p)] }, kw), 'point(p): ponto (complexo ou tupla (x, y))');
-  def('points', 1, ([ps], kw) => prim('points', { pts: pts(ps, 0) }, kw), 'points(ps): vários pontos');
-  def('segment', 2, ([a, b], kw) => prim('line', { pts: [pt(a), pt(b)] }, kw), 'segment(a, b): segmento de a a b');
-  def('arrow', 2, ([a, b], kw) => prim('arrow', { pts: distinct(pt(a), pt(b)) }, kw), 'arrow(a, b): seta de a para b');
-  def('line', 1, ([ps], kw) => prim('line', { pts: pts(ps, 2, 'line'), closed: kw.closed === true }, kw, ['closed']),
+  const two = (a, b) => drags([[0, a], [1, b]]);
+  def('point', 1, ([p], kw) => prim('points', { pts: [pt(p)], ...drags([[0, p]]) }, kw), 'point(p): ponto (complexo ou tupla (x, y))');
+  def('points', 1, ([ps], kw) => prim('points', { pts: pts(ps, 0), ...ptsDrag(ps) }, kw), 'points(ps): vários pontos');
+  def('segment', 2, ([a, b], kw) => prim('line', { pts: [pt(a), pt(b)], ...two(a, b) }, kw), 'segment(a, b): segmento de a a b');
+  def('arrow', 2, ([a, b], kw) => prim('arrow', { pts: distinct(pt(a), pt(b)), ...two(a, b) }, kw), 'arrow(a, b): seta de a para b');
+  def('line', 1, ([ps], kw) => prim('line', { pts: pts(ps, 2, 'line'), closed: kw.closed === true, ...ptsDrag(ps) }, kw, ['closed']),
     'line([p₁, p₂, …], closed=false): poligonal');
-  def('polygon', 1, ([ps], kw) => prim('line', { pts: pts(ps, 3, 'polygon'), closed: true }, kw), 'polygon([p₁, p₂, …]): polígono');
+  def('polygon', 1, ([ps], kw) => prim('line', { pts: pts(ps, 3, 'polygon'), closed: true, ...ptsDrag(ps) }, kw), 'polygon([p₁, p₂, …]): polígono');
   def('rect', 2, ([a, b], kw) => {
     const [[x0, y0], [x1, y1]] = [pt(a), pt(b)];
-    return prim('line', { pts: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], closed: true }, kw);
+    return prim('line', { pts: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], closed: true, ...drags([[0, a], [2, b]]) }, kw);
   }, 'rect(a, b): retângulo de cantos opostos a e b');
-  def('infline', 2, ([a, b], kw) => prim('infline', { pts: distinct(pt(a), pt(b)) }, kw), 'infline(a, b): reta por a e b');
-  def('ray', 2, ([a, b], kw) => prim('ray', { pts: distinct(pt(a), pt(b)) }, kw), 'ray(a, b): semirreta de a passando por b');
-  def('circle', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio') }, kw), 'circle(c, r): circunferência');
-  def('disk', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio') }, kw, [], { fill: true }), 'disk(c, r): disco');
+  def('infline', 2, ([a, b], kw) => prim('infline', { pts: distinct(pt(a), pt(b)), ...two(a, b) }, kw), 'infline(a, b): reta por a e b');
+  def('ray', 2, ([a, b], kw) => prim('ray', { pts: distinct(pt(a), pt(b)), ...two(a, b) }, kw), 'ray(a, b): semirreta de a passando por b');
+  def('circle', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio'), ...drags([['c', c]]) }, kw), 'circle(c, r): circunferência');
+  def('disk', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio'), ...drags([['c', c]]) }, kw, [], { fill: true }), 'disk(c, r): disco');
   const arcData = (c, r, t0, t1) => {
     const a0 = real(t0, 'ângulo'), a1 = real(t1, 'ângulo');
     if (!(a1 > a0)) fail('o ângulo final deve ser maior que o inicial');
-    return { c: pt(c, 'centro'), r: positive(r, 'raio'), t0: a0, t1: Math.min(a1, a0 + 2 * Math.PI) };
+    return { c: pt(c, 'centro'), r: positive(r, 'raio'), t0: a0, t1: Math.min(a1, a0 + 2 * Math.PI), ...drags([['c', c]]) };
   };
   def('arc', 4, ([c, r, t0, t1], kw) => prim('arc', arcData(c, r, t0, t1), kw), 'arc(c, r, θ₀, θ₁): arco de circunferência');
   def('sector', 4, ([c, r, t0, t1], kw) => prim('arc', { ...arcData(c, r, t0, t1), sector: true }, kw, [], { fill: true }),
@@ -2092,7 +2134,7 @@ export function makeGlobals() {
     const POS = ['c', 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
     const pos = kw.pos ?? 'c';
     if (!POS.includes(pos)) fail(`pos deve ser um de: ${POS.join(', ')}`);
-    return prim('text', { s: typeof str === 'string' ? str : showText(str), p: pt(p), pos }, kw, ['pos']);
+    return prim('text', { s: typeof str === 'string' ? str : showText(str), p: pt(p), pos, ...drags([['p', p]]) }, kw, ['pos']);
   }, 'text(s, p, pos="c"): texto no ponto p');
   def('group', null, (args, kw) => {
     const g = graphic(args, 'group');
@@ -2223,6 +2265,91 @@ export function makeGlobals() {
     return widget('slider', { min: lo, max: hi, step: st, label: kw.label ?? null }, init,
       (v) => (isInt ? int(Math.round(v)) : QQ.fromDecimal(String(v))));
   }, 'slider(a, b, passo=1, value=): controle deslizante');
+  // --------------------------------------------------------- pontos de controle
+  // O estado cru vem da UI: {from, at: [x, y]} (handle) ou {from, pts: [...]}
+  // (handles), com x e y como strings decimais; "from" identifica o valor
+  // inicial no código, para que editá-lo reposicione o ponto.
+  const handleOpts = (kw) => {
+    let snap = null;
+    if (kw.snap !== undefined) {
+      snap = elem(kw.snap, 'snap');
+      if ((snap.ring !== ZZ && snap.ring !== QQ) || compare(snap, int(0), '<=')) fail('snap deve ser um racional positivo, como 1/10');
+    }
+    let on = null;
+    if (kw.on !== undefined) on = fn(kw.on);
+    return { snap, on, ...limits(kw) };
+  };
+  const decimal = (v, lim) => {
+    let x = Number(v);
+    if (!Number.isFinite(x)) fail('posição inválida para o ponto de controle');
+    if (lim) x = Math.min(lim[1], Math.max(lim[0], x));
+    return x === Number(v) ? QQ.fromDecimal(String(v)) : QQ.fromDecimal(String(x));
+  };
+  const snapTo = (q, snap) => (snap ? mul(int(Math.round(toNum(q) / toNum(snap))), snap) : q);
+  // Ponto (cópia nova, para não marcar valores compartilhados) a partir do
+  // valor inicial ou da posição arrastada; aplica snap, limites e on.
+  const handlePoint = (init, at, o) => {
+    let z;
+    if (at) z = CC.fromParts(RR.coerce(snapTo(decimal(at[0], o.xlim), o.snap)), RR.coerce(snapTo(decimal(at[1], o.ylim), o.snap)));
+    else {
+      pt(init, 'ponto inicial');
+      z = init instanceof Tuple ? CC.fromParts(RR.coerce(init.items[0]), RR.coerce(init.items[1])) : CC.op('acb_set', CC.coerce(init));
+    }
+    if (o.on) {
+      const w = callValue(o.on, [z]);
+      pt(w, 'on(z)');
+      z = w instanceof Elem ? w.ring.copy(w) : new Tuple([...w.items]);
+    }
+    return z;
+  };
+  // Leitura compacta do ponto (as bolas de decimais como 0.1 têm raio ínfimo).
+  const pointText = ([x, y]) => {
+    const f = (v) => String(+v.toPrecision(10));
+    if (y === 0) return f(x);
+    const im = Math.abs(y) === 1 ? 'i' : `${f(Math.abs(y))}·i`;
+    if (x === 0) return y < 0 ? `-${im}` : im;
+    return `${f(x)} ${y < 0 ? '-' : '+'} ${im}`;
+  };
+  const handleSpec = (o, kw, from) => ({
+    label: kw.label ?? null, from,
+    snap: o.snap ? toNum(o.snap) : null, xlim: o.xlim, ylim: o.ylim,
+  });
+  def('handle', null, ([z0], kw) => {
+    const c = currentContext();
+    const o = handleOpts(kw);
+    const init = z0 ?? int(0);
+    const from = showText(init);
+    const i = c.widgetIndex++;
+    const prev = c.widgets[i];
+    const raw = prev && prev.kind === 'handle' && prev.value && prev.value.from === from ? prev.value : null;
+    c.widgets[i] = { kind: 'handle', value: raw };
+    const z = handlePoint(init, raw && raw.at, o);
+    HANDLE_OF.set(z, { id: c.cellId, index: i, from, snap: o.snap ? toNum(o.snap) : null });
+    return new Widget('handle', { ...handleSpec(o, kw, from), index: i }, z, { text: pointText(pt(z)), at: pt(z) });
+  }, 'handle(z₀, snap=, xlim=, ylim=, on=): ponto de controle arrastável nos gráficos');
+  def('handles', 1, ([zs], kw) => {
+    const c = currentContext();
+    const o = handleOpts(kw);
+    const inits = list(zs).map(unw);
+    const from = showText(inits);
+    const min = kw.min === undefined ? 0 : ui(kw.min, 'min');
+    const max = kw.max === undefined ? Infinity : ui(kw.max, 'max');
+    const i = c.widgetIndex++;
+    const prev = c.widgets[i];
+    const raw = prev && prev.kind === 'handles' && prev.value && prev.value.from === from ? prev.value : null;
+    c.widgets[i] = { kind: 'handles', value: raw };
+    // Entradas: número k = k-ésimo ponto inicial; [x, y] = posição arrastada.
+    const entries = raw ? raw.pts : inits.map((_, k) => k);
+    const base = { id: c.cellId, index: i, from, entries, snap: o.snap ? toNum(o.snap) : null, min };
+    const vs = entries.map((e, k) => {
+      const z = typeof e === 'number' ? handlePoint(inits[e], null, o) : handlePoint(null, e, o);
+      HANDLE_OF.set(z, { ...base, sub: k });
+      return z;
+    });
+    HANDLE_OF.set(vs, { ...base, list: true, add: kw.add === true, max: Number.isFinite(max) ? max : null });
+    const at = vs.map((z) => pt(z));
+    return new Widget('handles', { ...handleSpec(o, kw, from), index: i }, vs, { text: `[${at.map(pointText).join(', ')}]`, at });
+  }, 'handles([z₁, …], add=false, min=, max=, snap=, ...): lista de pontos de controle');
   def('checkbox', null, (args, kw) => widget('checkbox', { label: kw.label ?? null }, kw.value === true, (v) => !!v), 'checkbox(value=false)');
   def('textinput', null, (args, kw) => widget('text', { label: kw.label ?? null }, kw.value ?? '', (v) => String(v)), 'textinput(value=""): campo de texto');
   def('numinput', null, (args, kw) => widget('number', { label: kw.label ?? null }, kw.value !== undefined ? showText(kw.value) : '0',

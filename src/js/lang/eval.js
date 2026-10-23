@@ -33,8 +33,9 @@ export class Env {
 
 // Estado por avaliação de célula (widgets, contagem de passos).
 export class EvalContext {
-  constructor({ widgets = [], onWidget = null } = {}) {
+  constructor({ widgets = [], onWidget = null, cellId = null } = {}) {
     this.widgets = widgets;
+    this.cellId = cellId;
     this.widgetIndex = 0;
     this.onWidget = onWidget;
     this.depth = 0;

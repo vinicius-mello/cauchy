@@ -250,7 +250,7 @@ export class Notebook {
       return { id, status: 'ok', display: null, defs };
     }
     const env = new Env(this.scope);
-    const ctx = new EvalContext({ widgets: cell.widgets });
+    const ctx = new EvalContext({ widgets: cell.widgets, cellId: id });
     const t0 = performance.now();
     let arena;
     try {

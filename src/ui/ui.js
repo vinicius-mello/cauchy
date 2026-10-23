@@ -2,7 +2,7 @@
 // worker, persistência e painel de referência.
 
 import { render, ringName, esc } from './render.js';
-import { renderGraphics } from './plot.js';
+import { renderGraphics, handleKey } from './plot.js';
 import { highlight, symbolAt } from './highlight.js';
 import { EXAMPLES, pick } from './examples.js';
 import { t, setLang, getLang, detectLang, applyStatic, translateError, SYNTAX_CODE, SYNTAX_NOTES } from './i18n.js';
@@ -328,7 +328,14 @@ function showResult(c, res) {
     c.result = res;
     c.el.classList.remove('running', 'slow', 'stale');
     const outv = $('.widget output', c.el);
-    if (outv && document.activeElement?.type !== 'range') outv.textContent = res.display.value;
+    const v = res.display.value;
+    if (outv && document.activeElement?.type !== 'range') outv.textContent = v && typeof v === 'object' ? v.text : v;
+    // Ponto de controle: campos x e y acompanham o valor (se não estão em edição).
+    if (v && typeof v === 'object' && !Array.isArray(v.at[0])) {
+      c.el.querySelectorAll('.widget input.coord').forEach((inp, k) => {
+        if (document.activeElement !== inp) inp.value = fmtCoord(v.at[k]);
+      });
+    }
     return;
   }
   c.widgetKey = key;
@@ -361,7 +368,18 @@ function showResult(c, res) {
 function mountSlot(c, slot, d, res) {
   if (d.t === 'graphics') {
     const w = Math.max(300, Math.min(760, ($('#cells').clientWidth || 700) - 60));
-    slot.replaceWith(renderGraphics(d, w));
+    // Depois de arrastar um ponto, a janela fica fixa até a célula ser editada.
+    const view = c.view && c.viewSrc === c.src ? c.view : null;
+    const svg = renderGraphics(d, w, { view, interact: interactFor(c) });
+    slot.replaceWith(svg);
+    if (drag && drag.cell === c) {
+      drag.svg = svg;
+      svg.querySelector(`[data-h="${drag.key}"]`)?.classList.add('active');
+    }
+    if (c.focusKey) {
+      const g = svg.querySelector(`[data-h="${c.focusKey}"]`);
+      if (g) g.focus({ preventScroll: true });
+    }
     return;
   }
   if (d.t === 'widget') {
@@ -388,6 +406,17 @@ function mountSlot(c, slot, d, res) {
     } else if (d.kind === 'text' || d.kind === 'number') {
       wrap.innerHTML = `<label><span class="wl">${esc(label)}</span><input type="text" value="${esc(d.value)}"></label>`;
       $('input', wrap).addEventListener('change', (ev) => sendValue(ev.target.value));
+    } else if (d.kind === 'handle') {
+      const [x, y] = d.value.at;
+      wrap.innerHTML = `<label><span class="wl">${esc(label)}</span><output>${esc(d.value.text)}</output></label>` +
+        `<label class="xy">x <input type="text" class="coord" size="9" value="${esc(fmtCoord(x))}">` +
+        ` y <input type="text" class="coord" size="9" value="${esc(fmtCoord(y))}"></label>`;
+      const [ix, iy] = wrap.querySelectorAll('input');
+      const commit = () => sendValue({ from: d.spec.from, at: [ix.value.trim(), iy.value.trim()] });
+      ix.addEventListener('change', commit);
+      iy.addEventListener('change', commit);
+    } else if (d.kind === 'handles') {
+      wrap.innerHTML = `<label><span class="wl">${esc(label)}</span><output>${esc(d.value.text)}</output></label>`;
     } else if (d.kind === 'select') {
       const opts = d.spec.options.map((o, i) => `<option value="${i}" ${i === d.value ? 'selected' : ''}>${esc(o)}</option>`).join('');
       wrap.innerHTML = `<label><span class="wl">${esc(label)}</span><select>${opts}</select></label>`;
@@ -396,6 +425,133 @@ function mountSlot(c, slot, d, res) {
     slot.replaceWith(wrap);
   }
 }
+
+// --------------------------------------------------------- pontos de controle
+// Arrastar um ponto envia o novo valor à célula dona do handle (como um
+// slider); a janela do gráfico fica fixa para os eixos não se moverem sob o
+// cursor. O marcador anda na hora; o resto do gráfico segue o worker.
+let drag = null; // {cell, h, key, svg}
+
+const fmtCoord = (x) => String(+(+x).toPrecision(10));
+
+function viewOf(svg) {
+  const { x0, x1, y0, y1, width, height } = svg.cauchyView;
+  return { x0, x1, y0, y1, width, height };
+}
+
+function freeze(c, svg) {
+  if (!(c.view && c.viewSrc === c.src)) {
+    c.view = viewOf(svg);
+    c.viewSrc = c.src;
+  }
+}
+
+function toData(svg, ev) {
+  const v = svg.cauchyView;
+  const rect = svg.getBoundingClientRect();
+  const px = ((ev.clientX - rect.left) / rect.width) * v.width;
+  const py = ((ev.clientY - rect.top) / rect.height) * v.height;
+  const x = v.x0 + ((px - v.m.l) / v.W) * (v.x1 - v.x0);
+  const y = v.y1 - ((py - v.m.t) / v.H) * (v.y1 - v.y0);
+  return [Math.min(v.x1, Math.max(v.x0, x)), Math.min(v.y1, Math.max(v.y0, y))];
+}
+
+// Decimal com a resolução de um pixel da janela.
+function decimal(svg, x) {
+  const v = svg.cauchyView;
+  const d = Math.max(0, Math.min(15, Math.ceil(-Math.log10((v.x1 - v.x0) / v.W))));
+  const s = x.toFixed(d);
+  return /^-0(\.0*)?$/.test(s) ? s.slice(1) : s;
+}
+
+function sendHandle(h, value) {
+  const owner = cellById(h.id);
+  if (owner) {
+    owner.widgets[h.index] = { kind: h.entries ? 'handles' : 'handle', value };
+    save();
+  }
+  sendWidget({ type: 'widget', id: h.id, index: h.index, value });
+}
+
+function moveHandle(h, xy, svg) {
+  const at = xy.map((v) => decimal(svg, v));
+  if (h.entries) {
+    const pts = [...h.entries];
+    pts[h.sub] = at;
+    sendHandle(h, { from: h.from, pts });
+  } else sendHandle(h, { from: h.from, at });
+  const v = svg.cauchyView;
+  const g = svg.querySelector(`[data-h="${handleKey(h)}"]`);
+  const px = v.m.l + ((xy[0] - v.x0) / (v.x1 - v.x0)) * v.W;
+  const py = v.m.t + v.H - ((xy[1] - v.y0) / (v.y1 - v.y0)) * v.H;
+  g?.setAttribute('transform', `translate(${px.toFixed(2)},${py.toFixed(2)})`);
+}
+
+function interactFor(c) {
+  return {
+    down(h, ev, svg) {
+      freeze(c, svg);
+      c.focusKey = null;
+      drag = { cell: c, h, key: handleKey(h), svg };
+      svg.querySelector(`[data-h="${drag.key}"]`)?.classList.add('active');
+      document.body.classList.add('dragging');
+      const move = (e) => {
+        if (drag) moveHandle(drag.h, toData(drag.svg, e), drag.svg);
+      };
+      const up = () => {
+        drag?.svg.querySelector('.handle.active')?.classList.remove('active');
+        drag = null;
+        document.body.classList.remove('dragging');
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', up);
+      };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', up);
+    },
+    nudge(h, p, [dx, dy], big, svg) {
+      freeze(c, svg);
+      c.focusKey = handleKey(h);
+      const v = svg.cauchyView;
+      const step = Math.max(((v.x1 - v.x0) / v.W) * (big ? 10 : 1), h.snap ?? 0);
+      moveHandle(h, [p[0] + dx * step, p[1] + dy * step], svg);
+    },
+    add(leaf, xy, svg) {
+      const meta = leaf.dragList;
+      if (meta.max !== null && meta.entries.length >= meta.max) return;
+      freeze(c, svg);
+      // Numa poligonal, o ponto novo entra no segmento mais próximo.
+      let pos = meta.entries.length;
+      if (leaf.g === 'line' && leaf.pts.length >= 2) {
+        const n = leaf.pts.length;
+        let best = Infinity;
+        for (let i = 0; i < (leaf.closed ? n : n - 1); i++) {
+          const [a, b] = [leaf.pts[i], leaf.pts[(i + 1) % n]];
+          const [ux, uy] = [b[0] - a[0], b[1] - a[1]];
+          const t = Math.max(0, Math.min(1, ((xy[0] - a[0]) * ux + (xy[1] - a[1]) * uy) / (ux * ux + uy * uy || 1)));
+          const dd = Math.hypot(a[0] + t * ux - xy[0], a[1] + t * uy - xy[1]);
+          // Além das pontas de uma poligonal aberta, o ponto estende a linha.
+          if (dd < best) [best, pos] = [dd, !leaf.closed && i === 0 && t === 0 ? 0 : !leaf.closed && i === n - 2 && t === 1 ? n : i + 1];
+        }
+      }
+      const pts = [...meta.entries];
+      pts.splice(pos, 0, xy.map((v) => decimal(svg, v)));
+      sendHandle(meta, { from: meta.from, pts });
+    },
+    remove(h, svg) {
+      if (h.entries.length <= (h.min ?? 0)) return;
+      freeze(c, svg);
+      const pts = [...h.entries];
+      pts.splice(h.sub, 1);
+      sendHandle(h, { from: h.from, pts });
+    },
+  };
+}
+
+document.addEventListener('pointerdown', (ev) => {
+  for (const c of state.cells) if (c.focusKey && !ev.target.closest?.('.handle')) c.focusKey = null;
+});
 
 // --------------------------------------------------------------- status
 

@@ -96,6 +96,40 @@ test('memória: integrate libera os temporários de cada avaliação', () => {
   assert.equal(F.live, base);
 });
 
+test('pontos de controle: arraste, vértices arrastáveis e restrições', () => {
+  const nb = new Notebook();
+  let d = byIdDisplay(nb.update([
+    { id: 'a', src: 'p = handle(1 + i)' },
+    { id: 'b', src: 'q = handle(-1, snap = 1/4)' },
+    { id: 'g', src: 'segment(p, q) + point((p + q)/2) + circle(p, 1) + translate(point(p), 1)' },
+  ]));
+  const from = d.a.spec.from;
+  assert.equal(d.a.value.text, '1 + i');
+  // segment: os dois vértices; ponto médio derivado: nada; círculo: centro; transformado: nada.
+  assert.deepEqual(d.g.items.map((it) => (it.drag ?? []).map((h) => `${h.id}:${h.k}`)), [['a:0', 'b:1'], [], ['a:c'], []]);
+  d = byIdDisplay(nb.setWidget('a', 0, { from, at: ['0.5', '2.25'] }));
+  assert.equal(d.a.value.text, '0.5 + 2.25·i');
+  assert.deepEqual(d.g.items[0].pts[0], [0.5, 2.25]);
+  // snap: valor exato na grade.
+  d = byIdDisplay(nb.setWidget('b', 0, { from: d.b?.spec.from ?? '-1', at: ['0.537', '-0.444'] }));
+  assert.equal(d.b.value.text, '0.5 - 0.5·i');
+  // Editar o ponto inicial no código reposiciona.
+  d = byIdDisplay(nb.update([{ id: 'a', src: 'p = handle(2)' }]));
+  assert.equal(d.a.value.text, '2');
+  // on = f projeta a posição.
+  d = byIdDisplay(nb.update([{ id: 'u', src: 'u = handle(1, on = z -> z/abs(z))' }]));
+  d = byIdDisplay(nb.setWidget('u', 0, { from: d.u.spec.from, at: ['0', '3'] }));
+  assert.equal(d.u.value.text, 'i');
+  // Listas: elementos arrastáveis; a lista inteira permite acrescentar e remover.
+  d = byIdDisplay(nb.update([{ id: 'l', src: 'vs = handles([0, 1, i], add = true, min = 2)' }, { id: 'h', src: 'polygon(vs)' }]));
+  const it = d.h.items[0];
+  assert.equal(it.drag.length, 3);
+  assert.deepEqual([it.dragList.add, it.dragList.min, it.dragList.entries], [true, 2, [0, 1, 2]]);
+  d = byIdDisplay(nb.setWidget('l', 0, { from: d.l.spec.from, pts: [0, ['2', '2'], 2, ['-1', '0.5']] }));
+  assert.equal(d.l.value.text, '[0, 2 + 2·i, i, -1 + 0.5·i]');
+  assert.equal(d.h.items[0].pts.length, 4);
+});
+
 test('implicitplot: topologia e pontos sobre a curva', () => {
   const nb = new Notebook();
   const G = '(x, y) = gens(QQ[x, y]); ';
