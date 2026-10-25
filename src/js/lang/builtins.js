@@ -191,13 +191,28 @@ export function makeGlobals() {
   }, 'lift(x): representante inteiro (ou polinomial)');
 
   // --------------------------------------------------------- aritmética
+  // |x|²: x² para reais, re² + im² para complexos e Σ |xᵢ|² para tuplas e
+  // listas (vetores); exato com coordenadas racionais.
+  const abs2 = (x) => {
+    if (x instanceof Tuple || Array.isArray(x)) {
+      const items = x instanceof Tuple ? x.items : x;
+      if (!items.length) fail('abs2 de vetor vazio');
+      return items.map(abs2).reduce((a, b) => add(a, b));
+    }
+    elem(x);
+    if (x.ring === ZZ || x.ring === QQ || x.ring === RR) return mul(x, x);
+    if (x.ring === CC) {
+      const re = CC.re(x), im = CC.im(x);
+      return add(mul(re, re), mul(im, im));
+    }
+    fail(`abs2 não definido em ${x.ring}`);
+  };
   // Norma euclidiana de uma tupla: √(Σ |xᵢ|²).
   const tupleNorm = (t) => {
     if (!t.items.length) fail('abs da tupla vazia');
-    const absf = env.lookup('abs').impl;
-    const s = t.items.reduce((acc, x) => add(acc, pow(absf([x]), int(2))), int(0));
-    return env.lookup('sqrt').impl([s]);
+    return env.lookup('sqrt').impl([abs2(t)]);
   };
+  def('abs2', 1, ([x]) => abs2(x), 'abs2(x) = |x|²: x², re² + im², ou Σ xᵢ² de uma tupla ou lista');
   def('abs', 1, ([x]) => vec((x) => {
     if (x instanceof Tuple) return tupleNorm(x);
     elem(x);

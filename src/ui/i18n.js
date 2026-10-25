@@ -393,6 +393,8 @@ const RULES = [
   [/^operador (.+) entre tuplas: use \+ ou -, ou dot\(u, v\) para o produto escalar$/, 'operator $1 between tuples: use + or -, or dot(u, v) for the dot product'],
   [/^operador (.+) não se aplica à tupla vazia$/, 'operator $1 does not apply to the empty tuple'],
   [/^abs da tupla vazia$/, 'abs of the empty tuple'],
+  [/^abs2 de vetor vazio$/, 'abs2 of an empty vector'],
+  [/^abs2 não definido em (.+)$/, 'abs2 is not defined in $1'],
   [/^lista vazia$/, 'empty list'],
   [/^(min|max) de lista vazia$/, '$1 of an empty list'],
   [/^reduce de lista vazia sem valor inicial$/, 'reduce of an empty list without an initial value'],
