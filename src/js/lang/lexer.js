@@ -27,7 +27,9 @@ const UNICODE_OPS = {
 };
 
 const isIdStart = (c) => /[\p{L}_]/u.test(c);
-const isIdPart = (c) => /[\p{L}\p{N}_']/u.test(c);
+// Expoentes sobrescritos (x², x⁻¹) não fazem parte de identificadores.
+const SUPERSCRIPT = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9' };
+const isIdPart = (c) => /[\p{L}\p{N}_']/u.test(c) && !SUPERSCRIPT[c];
 const isDigit = (c) => c >= '0' && c <= '9';
 
 // Tokens após os quais uma quebra de linha não termina a expressão.
@@ -61,6 +63,18 @@ export function lex(src) {
       continue;
     }
     const start = i;
+    // Expoente sobrescrito: x² é x^2 e x⁻¹ é x^-1 (com a mesma precedência).
+    if (SUPERSCRIPT[c] || (c === '⁻' && SUPERSCRIPT[src[i + 1]])) {
+      toks.push({ t: 'op', v: '^', pos: i, end: i });
+      if (c === '⁻') toks.push({ t: 'op', v: '-', pos: i, end: ++i });
+      let d = '';
+      const s0 = i;
+      while (i < n && SUPERSCRIPT[src[i]]) d += SUPERSCRIPT[src[i++]];
+      toks.push({ t: 'num', v: d, pos: s0, end: i });
+      // Multiplicação implícita, como depois de um número: x²y, 3x²(x + 1).
+      if (i < n && (isIdStart(src[i]) || src[i] === '(')) toks.push({ t: 'op', v: '*', pos: i, end: i, implicit: true });
+      continue;
+    }
     if (isDigit(c)) {
       while (i < n && (isDigit(src[i]) || src[i] === '_')) i++;
       let t = 'num';

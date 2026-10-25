@@ -34,7 +34,7 @@ ring ¦ rings ¦ ring(x) ¦ Anel ao qual o valor pertence. ¦ The ring a value b
 base ¦ rings ¦ base(R) ¦ Anel de coeficientes de R[x], R[x, y, …] ou Mat(R). ¦ Coefficient ring of R[x], R[x, y, …] or Mat(R). ¦ base(QQ[x]) ;; base(Zmod(5)[x, y]) ¦
 characteristic ¦ rings ¦ characteristic(R) ¦ Característica do anel. ¦ Characteristic of the ring. ¦ characteristic(GF(7^2)) ;; characteristic(QQ) ¦
 lift ¦ rings ¦ lift(x) ¦ Representante inteiro de um elemento de ℤ/nℤ, ou polinômio inteiro de um elemento de GF(q) (também para polinômios, inclusive em várias variáveis, e matrizes sobre ℤ/nℤ). ¦ Integer representative of an element of ℤ/nℤ, or integer polynomial of an element of GF(q) (also for polynomials, including multivariate ones, and matrices over ℤ/nℤ). ¦ lift(Zmod(7)(-1)) ;; F = GF(9); lift(gen(F)^5) ¦ fq_default_get_fmpz_poly fmpz_mod_poly_get_fmpz_poly
-abs ¦ arith ¦ abs(x) ¦ Valor absoluto (exato para inteiros e racionais; módulo para complexos). ¦ Absolute value (exact for integers and rationals; modulus for complex numbers). ¦ abs(-3/4) ;; abs(3 + 4i) ¦ fmpz_abs fmpq_abs arb_abs acb_abs
+abs ¦ arith ¦ abs(x) ¦ Valor absoluto (exato para inteiros e racionais; módulo para complexos). Para uma tupla (x, y, …), a norma euclidiana √(x² + y² + …): abs(p - q) é a distância entre os pontos p e q. ¦ Absolute value (exact for integers and rationals; modulus for complex numbers). For a tuple (x, y, …), the Euclidean norm √(x² + y² + …): abs(p - q) is the distance between points p and q. ¦ abs(-3/4) ;; abs(3 + 4i) ;; abs((1, 2) - (4, 6)) ¦ fmpz_abs fmpq_abs arb_abs acb_abs
 sign ¦ arith ¦ sign(x) ¦ Sinal: −1, 0 ou 1. Para bolas, erro se o sinal não for decidível. ¦ Sign: −1, 0 or 1. For balls, an error if the sign is undecidable. ¦ sign(-7) ;; sign(pi - 3) ¦ fmpz_sgn fmpq_sgn arb_lt
 floor ¦ arith ¦ floor(x) ¦ Maior inteiro ≤ x. ¦ Largest integer ≤ x. ¦ floor(-7/2) ;; floor(pi^10) ¦ fmpz_fdiv_q arb_floor arb_get_unique_fmpz
 ceil ¦ arith ¦ ceil(x) ¦ Menor inteiro ≥ x. ¦ Smallest integer ≥ x. ¦ ceil(7/2) ;; ceil(exp(10)) ¦ arb_ceil arb_get_unique_fmpz
@@ -283,7 +283,7 @@ expm ¦ mat ¦ expm(A) ¦ Exponencial de matriz. ¦ Matrix exponential. ¦ expm(
 kron ¦ mat ¦ kron(A, B) ¦ Produto de Kronecker A ⊗ B. ¦ Kronecker product A ⊗ B. ¦ kron([1, 2; 3, 4], [0, 1; 1, 0]) ;; kron(identity(2), [1, 1; 1, -1]) ¦
 eigenvectors ¦ mat ¦ eigenvectors(A) ¦ Pares (λ, v) com A·v = λ·v, para autovalores simples (certificados); v é normalizado com a maior componente igual a 1. Para matrizes reais, autovalores provadamente reais vêm como bolas reais. ¦ Pairs (λ, v) with A·v = λ·v, for simple (certified) eigenvalues; v is normalized with its largest component equal to 1. For real matrices, provably real eigenvalues come as real balls. ¦ eigenvectors([2, 1; 1, 2]) ;; A = [1, 2; 3, 4]; [A*v - l*v | (l, v) <- eigenvectors(A)] ¦ acb_mat_approx_eig_qr acb_mat_eig_simple
 dot ¦ mat ¦ dot(u, v) ¦ Produto escalar de listas. ¦ Dot product of lists. ¦ dot([1, 2, 3], [4, 5, 6]) ¦
-norm ¦ mat ¦ norm(x) ¦ Norma euclidiana (lista), norma absoluta (GF(q)), ou z·z̄. ¦ Euclidean norm (list), absolute norm (GF(q)), or z·z̄. ¦ norm([3, 4]) ;; norm(gen(GF(5^3))) ¦ fq_default_norm
+norm ¦ mat ¦ norm(x) ¦ Norma euclidiana (lista ou tupla), norma absoluta (GF(q)), ou z·z̄. ¦ Euclidean norm (list or tuple), absolute norm (GF(q)), or z·z̄. ¦ norm([3, 4]) ;; norm(gen(GF(5^3))) ¦ fq_default_norm
 order ¦ ff ¦ order(F), order(a) ¦ Número de elementos de um corpo/anel finito, ou ordem multiplicativa de um elemento. ¦ Number of elements of a finite field/ring, or multiplicative order of an element. ¦ order(GF(3^5)) ;; order(Zmod(101)(2)) ¦ fq_default_ctx_order fmpz_factor fq_default_pow
 modulus ¦ ff ¦ modulus(R) ¦ n de ℤ/nℤ ou polinômio de definição de GF(q). ¦ n of ℤ/nℤ or the defining polynomial of GF(q). ¦ modulus(GF(2^8)) ¦ fq_default_ctx_modulus
 frobenius ¦ ff ¦ frobenius(a), frobenius(a, e) ¦ Automorfismo de Frobenius a ↦ a^(pᵉ). ¦ Frobenius automorphism a ↦ a^(pᵉ). ¦ F = GF(7^3); a = gen(F); frobenius(a) == a^7 ¦ fq_default_frobenius
@@ -295,7 +295,7 @@ map ¦ list ¦ map(xs, f) ¦ [f(x) | x <- xs]. ¦ [f(x) | x <- xs]. ¦ map(1..5,
 filter ¦ list ¦ filter(xs, p) ¦ Elementos que satisfazem p. ¦ Elements satisfying p. ¦ filter(1..100, isprime) ¦
 reduce ¦ list ¦ reduce(xs, f), reduce(xs, f, init) ¦ Dobra à esquerda. Também: fold. ¦ Left fold. Also: fold. ¦ reduce(1..10, (a, b) -> a * b) ¦
 scan ¦ list ¦ scan(xs, f), scan(xs, f, init) ¦ Acumulações parciais. ¦ Partial accumulations. ¦ scan(1..10, (a, b) -> a + b) ¦
-sum ¦ list ¦ sum(xs), sum(xs, f) ¦ Soma. Também: Σ. ¦ Sum. Also: Σ. ¦ sum(1..100) ;; sum(1..20, k -> 1/k^2) ¦
+sum ¦ list ¦ sum(xs), sum(xs, f) ¦ Soma. Também: Σ. Soma também tuplas, como vetores. ¦ Sum. Also: Σ. Also sums tuples, as vectors. ¦ sum(1..100) ;; sum(1..20, k -> 1/k^2) ;; ps = [(0, 0), (2, 0), (1, 3)]; sum(ps)/len(ps) ¦
 prod ¦ list ¦ prod(xs), prod(xs, f) ¦ Produto. Também: Π. ¦ Product. Also: Π. ¦ prod(primes(30)) ¦
 range ¦ list ¦ a..b, a..b by s, range(n), range(a, b, s) ¦ Intervalo inclusivo de números. ¦ Inclusive range of numbers. ¦ 1..10 by 3 ;; 0..1 by 1/4 ¦
 first ¦ list ¦ first(xs) ¦ Primeiro elemento. Também: head. ¦ First element. Also: head. ¦ first(primes(100)) ¦

@@ -67,3 +67,9 @@ test('assinatura: chamada e argumento corrente', () => {
   assert.equal(callAt('(1, 2', 5), null);
   assert.equal(callAt('f(1)', 4), null);
 });
+
+test('expoentes sobrescritos não fazem parte de identificadores', () => {
+  assert.equal(wordBefore('x²', 2), null);
+  assert.deepEqual(wordBefore('x²+ab', 5), { word: 'ab', start: 3 });
+  assert.deepEqual([...identifiers('x² + y₁³')], ['x', 'y₁']);
+});

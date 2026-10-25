@@ -191,7 +191,15 @@ export function makeGlobals() {
   }, 'lift(x): representante inteiro (ou polinomial)');
 
   // --------------------------------------------------------- aritmética
+  // Norma euclidiana de uma tupla: √(Σ |xᵢ|²).
+  const tupleNorm = (t) => {
+    if (!t.items.length) fail('abs da tupla vazia');
+    const absf = env.lookup('abs').impl;
+    const s = t.items.reduce((acc, x) => add(acc, pow(absf([x]), int(2))), int(0));
+    return env.lookup('sqrt').impl([s]);
+  };
   def('abs', 1, ([x]) => vec((x) => {
+    if (x instanceof Tuple) return tupleNorm(x);
     elem(x);
     if (x.ring === ZZ) return ZZ.op('fmpz_abs', x);
     if (x.ring === QQ) return QQ.op('fmpq_abs', x);
@@ -1600,8 +1608,9 @@ export function makeGlobals() {
   def('norm', 1, ([a]) => {
     if (a instanceof Elem && a.ring instanceof FiniteField) return a.ring.opTo(ZZ, 'fq_norm', a);
     if (Array.isArray(a)) return env.lookup('sqrt').impl([env.lookup('dot').impl([a, a])]);
+    if (a instanceof Tuple) return tupleNorm(a);
     return mul(a, env.lookup('conj').impl([a]));
-  }, 'norm(a): norma (corpo finito), norma euclidiana (vetor)');
+  }, 'norm(a): norma (corpo finito), norma euclidiana (vetor ou tupla)');
   def('isgenerator', 1, ([a]) => {
     const R = a.ring;
     if (!(R instanceof FiniteField)) fail('isgenerator espera elemento de GF(q)');
@@ -1661,7 +1670,8 @@ export function makeGlobals() {
   def('sum', null, ([xs, f]) => {
     let items = list(xs);
     if (f) items = items.map((x) => callValue(fn(f), [x]));
-    return items.reduce((a, x) => binop('+', a, x), int(0));
+    // Começa no primeiro termo, para somar também tuplas (vetores).
+    return items.length ? items.slice(1).reduce((a, x) => binop('+', a, x), items[0]) : int(0);
   }, 'sum(xs) ou sum(xs, f): soma');
   alias('Σ', 'sum');
   def('prod', null, ([xs, f]) => {

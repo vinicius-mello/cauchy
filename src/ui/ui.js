@@ -920,7 +920,7 @@ function showCompletions(ta, explicit = false) {
   const w = wordBefore(ta.value, pos) ?? (explicit ? { word: '', start: pos } : null);
   if (!w || (!explicit && w.word.length < 2)) return closeAssist();
   // Não sugere no meio de uma palavra.
-  if (/[\p{L}\p{N}_']/u.test(ta.value[pos] ?? '')) return closeAssist();
+  if (/(?![⁰¹²³⁴⁵⁶⁷⁸⁹])[\p{L}\p{N}_']/u.test(ta.value[pos] ?? '')) return closeAssist();
   const kind = candidates();
   const items = complete(w.word, kind.keys(), explicit ? 30 : 12);
   if (!items.length) return explicit ? showSignature(ta) : closeAssist();
@@ -1043,7 +1043,7 @@ function signatureHtml(sig, name, arg) {
 }
 
 function assistOnInput(ta, ev) {
-  const typed = ev.inputType === 'insertText' && ev.data && /[\p{L}\p{N}_']$/u.test(ev.data);
+  const typed = ev.inputType === 'insertText' && ev.data && /(?![⁰¹²³⁴⁵⁶⁷⁸⁹])[\p{L}\p{N}_']$/u.test(ev.data);
   if (typed || (ev.inputType?.startsWith('delete') && state.assist?.items)) showCompletions(ta);
   else if (state.assist?.items) closeAssist();
   if (!state.assist?.items) showSignature(ta);

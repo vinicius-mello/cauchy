@@ -86,6 +86,7 @@ const ERRORS = [
   'point(0, marker = "x")', 'draw(point(0), aspect = "x")', 'curve(t -> t, 1, 0)', 'rgb(2, 0, 0)', 'arc(0, 1, i, 2)',
   'scale(point(0), 0)', 'transform(point(0), [1, 2, 3; 4, 5, 6])', 'transform(point(0), [1, 2; 2, 4])', 'transform(ray(0, 1), exp)',
   'translate(3, 1)', 'rotate(point(0), "a")',
+  '(1, 2) * (3, 4)', '(1, 2) + (1, 2, 3)', '(1, 2) < (3, 4)', '(1, 2) + 1',
   'GF(7)[x, y]', 'QQ[x, x]', 'QQ[x, y, order = "abc"]', 'QQ[x, y, foo = 1]', 'QQ[1, 2]', '[1, 2][1, order = 2]',
   '(x, y) = gens(Zmod(6)[x, y]); factor(x^2 - y^2)', '(x, y) = gens(QQ[x, y]); (x + y)(1)', '(x, y) = gens(QQ[x, y]); (x + y)[1]',
   'gen(QQ[x, y])', 'gen(QQ[x, y], 3)', 'gen(QQ[x, y], "z")', '(x, y) = gens(QQ[x, y]); roots(x*y - 1)',

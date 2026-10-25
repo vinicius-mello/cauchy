@@ -5,7 +5,7 @@ import { esc } from './render.js';
 export const KEYWORDS = new Set(['let', 'in', 'if', 'then', 'else', 'match', 'with', 'and', 'or', 'not', 'true', 'false', 'by']);
 const RINGS = new Set(['ZZ', 'QQ', 'RR', 'CC', 'ℤ', 'ℚ', 'ℝ', 'ℂ']);
 
-const TOKEN = /(#[^\n]*)|("(?:\\.|[^"\\])*"?)|(\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?)|([\p{L}_][\p{L}\p{N}_']*)|(\|>|->|=>|<-|==|!=|<=|>=|\.\.\.|\.\.|\/\/|[-+*/^%!=<>|∘√·×≤≥≠→←⇒▷])|(\s+)|(.)/gsu;
+const TOKEN = /(#[^\n]*)|("(?:\\.|[^"\\])*"?)|(\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?)|([\p{L}_](?:(?![⁰¹²³⁴⁵⁶⁷⁸⁹])[\p{L}\p{N}_'])*)|(⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]+|\|>|->|=>|<-|==|!=|<=|>=|\.\.\.|\.\.|\/\/|[-+*/^%!=<>|∘√·×≤≥≠→←⇒▷])|(\s+)|(.)/gsu;
 
 export function highlight(src, builtins = new Set(), err = null) {
   const segs = [];

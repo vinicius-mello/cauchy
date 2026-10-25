@@ -120,7 +120,7 @@ shows a marker you can move with the mouse, and dependent cells follow.</p>
 
 export const SYNTAX_CODE = {
   pt: `n = 2^64 + 1          # definição
-f(x) = x^2 + 1        # função
+f(x) = x² + 1         # função (x² = x^2)
 f(0) = 1; f(n) = n*f(n-1)   # cláusulas
 g = t -> sin(t)/t     # lambda
 [k^2 | k <- 1..10, isodd(k)]
@@ -133,13 +133,14 @@ with digits = 50: pi  # precisão local
 R = QQ[x]; x = gen(R) # polinômios
 (x, y) = gens(QQ[x, y])   # várias variáveis
 A = [1, 2; 3, 4]      # matriz
+u = (1, 2); v = 2u + (0, 1)   # tuplas como vetores
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # entrada reativa
 p = handle(1 + i)     # ponto arrastável
 circle(0, 1, color = "red") + point(1/2 + i/2)
 flint("arb_gamma", 1/3)   # FLINT direto`,
   en: `n = 2^64 + 1          # definition
-f(x) = x^2 + 1        # function
+f(x) = x² + 1         # function (x² = x^2)
 f(0) = 1; f(n) = n*f(n-1)   # clauses
 g = t -> sin(t)/t     # lambda
 [k^2 | k <- 1..10, isodd(k)]
@@ -152,6 +153,7 @@ with digits = 50: pi  # local precision
 R = QQ[x]; x = gen(R) # polynomials
 (x, y) = gens(QQ[x, y])   # several variables
 A = [1, 2; 3, 4]      # matrix
+u = (1, 2); v = 2u + (0, 1)   # tuples as vectors
 F = GF(5^3); a = gen(F)
 k = slider(1, 10)     # reactive input
 p = handle(1 + i)     # draggable point
@@ -386,6 +388,11 @@ const RULES = [
   [/^linhas da matriz com tamanhos diferentes$/, 'matrix rows have different lengths'],
   [/^listas de tamanhos diferentes$/, 'lists of different lengths'],
   [/^vetores de tamanhos diferentes$/, 'vectors of different lengths'],
+  [/^tuplas de tamanhos diferentes$/, 'tuples of different lengths'],
+  [/^tuplas não têm ordem; compare as coordenadas$/, 'tuples have no order; compare the coordinates'],
+  [/^operador (.+) entre tuplas: use \+ ou -, ou dot\(u, v\) para o produto escalar$/, 'operator $1 between tuples: use + or -, or dot(u, v) for the dot product'],
+  [/^operador (.+) não se aplica à tupla vazia$/, 'operator $1 does not apply to the empty tuple'],
+  [/^abs da tupla vazia$/, 'abs of the empty tuple'],
   [/^lista vazia$/, 'empty list'],
   [/^(min|max) de lista vazia$/, '$1 of an empty list'],
   [/^reduce de lista vazia sem valor inicial$/, 'reduce of an empty list without an initial value'],

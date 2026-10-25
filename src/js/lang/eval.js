@@ -315,6 +315,7 @@ function evalBin(node, env) {
 function negate(v) {
   if (v instanceof Elem) return neg(v);
   if (Array.isArray(v)) return v.map(negate);
+  if (v instanceof Tuple && v.items.length) return new Tuple(v.items.map(negate));
   fail('negação de valor não numérico');
 }
 
@@ -339,6 +340,7 @@ export function binop(op, l, r) {
     }
     fail(`operador ${op} não se aplica a strings`);
   }
+  if (l instanceof Tuple || r instanceof Tuple) return tupleOp(op, l, r);
   if (Array.isArray(l) || Array.isArray(r)) return listOp(op, l, r);
   if (!(l instanceof Elem) || !(r instanceof Elem)) {
     fail(`operador ${op} não se aplica a ${typeName(l)} e ${typeName(r)}`);
@@ -354,6 +356,24 @@ export function binop(op, l, r) {
     case '<': case '<=': case '>': case '>=': return compare(l, r, op);
   }
   fail(`operador desconhecido ${op}`);
+}
+
+// Tuplas como vetores: + e - entre tuplas do mesmo tamanho, componente a
+// componente; *, /, //, % e ^ com um escalar.
+function tupleOp(op, l, r) {
+  const lt = l instanceof Tuple, rt = r instanceof Tuple;
+  if ((lt && !l.items.length) || (rt && !r.items.length)) fail(`operador ${op} não se aplica à tupla vazia`);
+  if (lt && rt) {
+    if (['<', '<=', '>', '>='].includes(op)) fail('tuplas não têm ordem; compare as coordenadas');
+    if (op !== '+' && op !== '-') fail(`operador ${op} entre tuplas: use + ou -, ou dot(u, v) para o produto escalar`);
+    if (l.items.length !== r.items.length) fail('tuplas de tamanhos diferentes');
+    return new Tuple(l.items.map((x, i) => binop(op, x, r.items[i])));
+  }
+  const scalar = lt ? r : l;
+  if (!(scalar instanceof Elem)) fail(`operador ${op} não se aplica a ${typeName(l)} e ${typeName(r)}`);
+  if (lt && ['*', '/', '//', '%', '^'].includes(op)) return new Tuple(l.items.map((x) => binop(op, x, r)));
+  if (rt && op === '*') return new Tuple(r.items.map((x) => binop(op, l, x)));
+  fail(`operador ${op} não se aplica a ${typeName(l)} e ${typeName(r)}`);
 }
 
 // Listas: + concatena; escalares operam elemento a elemento (vetorização).

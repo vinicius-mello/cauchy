@@ -6,7 +6,7 @@
 
 const PAIRS = { '(': ')', '[': ']', '{': '}', '"': '"' };
 const CLOSERS = new Set([')', ']', '}']);
-const WORD = /[\p{L}\p{N}_']/u;
+const WORD = /(?![⁰¹²³⁴⁵⁶⁷⁸⁹])[\p{L}\p{N}_']/u;
 
 // Contexto em pos: dentro de string, de comentário ou código.
 export function contextAt(src, pos) {
@@ -88,7 +88,7 @@ export function wordBefore(src, pos) {
 // Identificadores do texto (para sugerir nomes definidos no caderno).
 export function identifiers(src) {
   const out = new Set();
-  const re = /("(?:\\.|[^"\\\n])*"?)|(#[^\n]*)|([\p{L}_][\p{L}\p{N}_']*)/gu;
+  const re = /("(?:\\.|[^"\\\n])*"?)|(#[^\n]*)|([\p{L}_](?:(?![⁰¹²³⁴⁵⁶⁷⁸⁹])[\p{L}\p{N}_'])*)/gu;
   let m;
   while ((m = re.exec(src))) if (m[3]) out.add(m[3]);
   return out;
