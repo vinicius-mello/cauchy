@@ -227,7 +227,7 @@ function buildCellEl(c) {
 function cellAction(c, act) {
   const i = state.cells.indexOf(c);
   switch (act) {
-    case 'run': evalCell(c); break;
+    case 'run': evalCell(c, true); break;
     case 'add': createCell('', c, true); break;
     case 'del': deleteCell(c); break;
     case 'up':
@@ -264,16 +264,16 @@ function onKey(ev, c) {
   const ta = ev.target;
   if (ev.key === 'Enter' && ev.shiftKey) {
     ev.preventDefault();
-    evalCell(c);
+    evalCell(c, true);
     const i = state.cells.indexOf(c);
     const next = state.cells[i + 1] ?? createCell('', c);
     $('textarea', next.el).focus();
   } else if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) {
     ev.preventDefault();
-    evalCell(c);
+    evalCell(c, true);
   } else if (ev.key === 'Enter' && ev.altKey) {
     ev.preventDefault();
-    evalCell(c);
+    evalCell(c, true);
     createCell('', c, true);
   } else if (ev.key === 'Tab' && !ev.shiftKey) {
     ev.preventDefault();
@@ -294,8 +294,15 @@ function onKey(ev, c) {
   }
 }
 
-function evalCell(c) {
+// Avaliação explícita (reset): os pontos de controle da célula voltam aos
+// valores iniciais do código e as janelas fixadas pelo arraste se soltam.
+function evalCell(c, reset = false) {
   clearTimeout(c.timer);
+  if (reset) {
+    c.widgets = c.widgets.map((w) => (w && (w.kind === 'handle' || w.kind === 'handles') ? { kind: w.kind, value: null } : w));
+    for (const d of state.cells) d.view = null;
+    save();
+  }
   c.sentSrc = c.src;
   send({ type: 'update', changes: [cellChange(c)] });
 }
