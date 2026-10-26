@@ -2277,10 +2277,10 @@ export function makeGlobals() {
   // --------------------------------------------------------- widgets
   const widget = (kind, spec, defVal, parse) => {
     const c = currentContext();
-    const i = c.widgetIndex++;
-    const raw = c.widgets[i] !== undefined && c.widgets[i].kind === kind ? c.widgets[i].value : defVal;
-    c.widgets[i] = { kind, value: raw };
-    return new Widget(kind, { ...spec, index: i }, parse(raw), raw);
+    const { key, prev } = c.widgetSlot(kind);
+    const raw = prev !== undefined ? prev : defVal;
+    c.storeWidget(key, kind, raw);
+    return new Widget(kind, { ...spec, index: key }, parse(raw), raw);
   };
   def('slider', null, ([a, b, step], kw) => {
     const lo = toNum(a), hi = toNum(b);
@@ -2349,10 +2349,9 @@ export function makeGlobals() {
     const o = handleOpts(kw);
     const init = z0 ?? int(0);
     const from = showText(init);
-    const i = c.widgetIndex++;
-    const prev = c.widgets[i];
-    const raw = prev && prev.kind === 'handle' && prev.value && prev.value.from === from ? prev.value : null;
-    c.widgets[i] = { kind: 'handle', value: raw };
+    const { key: i, prev } = c.widgetSlot('handle');
+    const raw = prev && prev.from === from ? prev : null;
+    c.storeWidget(i, 'handle', raw);
     const z = handlePoint(init, raw && raw.at, o, init instanceof Tuple);
     HANDLE_OF.set(z, { id: c.cellId, index: i, from, snap: o.snap ? toNum(o.snap) : null });
     return new Widget('handle', { ...handleSpec(o, kw, from), index: i }, z, { text: z instanceof Tuple ? showText(z) : pointText(pt(z)), at: pt(z) });
@@ -2364,10 +2363,9 @@ export function makeGlobals() {
     const from = showText(inits);
     const min = kw.min === undefined ? 0 : ui(kw.min, 'min');
     const max = kw.max === undefined ? Infinity : ui(kw.max, 'max');
-    const i = c.widgetIndex++;
-    const prev = c.widgets[i];
-    const raw = prev && prev.kind === 'handles' && prev.value && prev.value.from === from ? prev.value : null;
-    c.widgets[i] = { kind: 'handles', value: raw };
+    const { key: i, prev } = c.widgetSlot('handles');
+    const raw = prev && prev.from === from ? prev : null;
+    c.storeWidget(i, 'handles', raw);
     // Entradas: número k = k-ésimo ponto inicial; [x, y] = posição arrastada.
     const entries = raw ? raw.pts : inits.map((_, k) => k);
     const tuple = inits.length > 0 && inits.every((z) => z instanceof Tuple);

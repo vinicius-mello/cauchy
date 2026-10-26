@@ -22,7 +22,7 @@ class Cell {
     this.weak = new Set();
     this.deps = new Set(); // ids de células
     this.owned = []; // elementos FLINT vivos pertencentes à célula
-    this.widgets = [];
+    this.widgets = {}; // estado dos widgets por chave (ver EvalContext)
     this.result = null;
     this.ok = false;
     this.reparse();
@@ -255,12 +255,16 @@ export class Notebook {
     let arena;
     try {
       let shown;
+      const panel = [];
       ({ value: shown, arena } = F.inArena(() => withContext(ctx, () => {
-        const v = bindDefs(cell.stmts, env);
-        return { v, d: display(v) };
+        const v = bindDefs(cell.stmts, env, panel);
+        // Uma definição de widgets no fim já aparece no painel.
+        const w = cell.stmts[cell.stmts.length - 1].k === 'def' ? lastWidget(v) : null;
+        const inPanel = w !== null && panel.some((p) => p.widget === w);
+        return { v, d: inPanel ? null : display(v), panel: panel.map(({ name, widget }) => ({ label: name, d: widget.display() })) };
       })));
       const ms = performance.now() - t0;
-      cell.widgets = ctx.widgets;
+      cell.widgets = ctx.next;
       // Exporta definições e mantém vivos apenas os elementos alcançáveis.
       const keep = new Set();
       const seenEnvs = new Set();
@@ -277,7 +281,7 @@ export class Notebook {
       cell.ok = true;
       const last = cell.stmts[cell.stmts.length - 1];
       const label = last.k === 'def' && last.pat.k === 'pvar' ? last.pat.name : last.k === 'fun' ? last.name : null;
-      return { id, status: 'ok', display: shown.d, defs, label, ms };
+      return { id, status: 'ok', display: shown.d, panel: shown.panel, widgets: cell.widgets, defs, label, ms };
     } catch (e) {
       arena = e.arena ?? arena;
       if (arena) for (const x of arena) F.release(x);
@@ -294,6 +298,18 @@ export class Notebook {
   liveCount() {
     return flint().live;
   }
+}
+
+// Último widget de um valor de definição (o próprio, ou o último de uma
+// tupla ou lista de widgets).
+function lastWidget(v) {
+  if (v instanceof Widget) return v;
+  const items = v instanceof Tuple ? v.items : Array.isArray(v) ? v : [];
+  for (let i = items.length - 1; i >= 0; i--) {
+    const w = lastWidget(items[i]);
+    if (w) return w;
+  }
+  return null;
 }
 
 function markValue(v, keep, seenEnvs, stopEnv) {

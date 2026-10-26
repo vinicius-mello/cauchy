@@ -8,6 +8,8 @@ before(async () => { F = await init(); });
 const show = (r) => (r.status === 'error' ? `ERRO: ${r.error.message}` : r.display ? toText(r.display) : '');
 const byId = (res) => Object.fromEntries(res.map((r) => [r.id, show(r)]));
 const byIdDisplay = (res) => Object.fromEntries(res.map((r) => [r.id, r.display]));
+// Exibição da célula, ou o primeiro controle do painel.
+const byIdShown = (res) => Object.fromEntries(res.map((r) => [r.id, r.display ?? r.panel?.[0]?.d]));
 
 test('reavalia apenas dependentes, em ordem topológica', () => {
   const nb = new Notebook();
@@ -98,7 +100,7 @@ test('memória: integrate libera os temporários de cada avaliação', () => {
 
 test('pontos de controle: arraste, vértices arrastáveis e restrições', () => {
   const nb = new Notebook();
-  let d = byIdDisplay(nb.update([
+  let d = byIdShown(nb.update([
     { id: 'a', src: 'p = handle(1 + i)' },
     { id: 'b', src: 'q = handle(-1, snap = 1/4)' },
     { id: 'g', src: 'segment(p, q) + point((p + q)/2) + circle(p, 1) + translate(point(p), 1)' },
@@ -107,30 +109,30 @@ test('pontos de controle: arraste, vértices arrastáveis e restrições', () =>
   assert.equal(d.a.value.text, '1 + i');
   // segment: os dois vértices; ponto médio derivado: nada; círculo: centro; transformado: nada.
   assert.deepEqual(d.g.items.map((it) => (it.drag ?? []).map((h) => `${h.id}:${h.k}`)), [['a:0', 'b:1'], [], ['a:c'], []]);
-  d = byIdDisplay(nb.setWidget('a', 0, { from, at: ['0.5', '2.25'] }));
+  d = byIdShown(nb.setWidget('a', 'p', { from, at: ['0.5', '2.25'] }));
   assert.equal(d.a.value.text, '0.5 + 2.25·i');
   assert.deepEqual(d.g.items[0].pts[0], [0.5, 2.25]);
   // snap: valor exato na grade.
-  d = byIdDisplay(nb.setWidget('b', 0, { from: d.b?.spec.from ?? '-1', at: ['0.537', '-0.444'] }));
+  d = byIdShown(nb.setWidget('b', 'q', { from: d.b?.spec.from ?? '-1', at: ['0.537', '-0.444'] }));
   assert.equal(d.b.value.text, '0.5 - 0.5·i');
   // Tupla com snap racional: coordenadas racionais exatas.
-  d = byIdDisplay(nb.update([{ id: 'r', src: 'r = handle((0, 0), snap = 1/3)' }, { id: 's', src: 'r' }]));
-  d = byIdDisplay(nb.setWidget('r', 0, { from: d.r.spec.from, at: ['0.7', '-0.3'] }));
+  d = byIdShown(nb.update([{ id: 'r', src: 'r = handle((0, 0), snap = 1/3)' }, { id: 's', src: 'r' }]));
+  d = byIdShown(nb.setWidget('r', 'r', { from: d.r.spec.from, at: ['0.7', '-0.3'] }));
   assert.equal(d.r.value.text, '(2/3, -1/3)');
   assert.equal(toText(d.s), '(2/3, -1/3)');
   // Editar o ponto inicial no código reposiciona.
-  d = byIdDisplay(nb.update([{ id: 'a', src: 'p = handle(2)' }]));
+  d = byIdShown(nb.update([{ id: 'a', src: 'p = handle(2)' }]));
   assert.equal(d.a.value.text, '2');
   // on = f projeta a posição.
-  d = byIdDisplay(nb.update([{ id: 'u', src: 'u = handle(1, on = z -> z/abs(z))' }]));
-  d = byIdDisplay(nb.setWidget('u', 0, { from: d.u.spec.from, at: ['0', '3'] }));
+  d = byIdShown(nb.update([{ id: 'u', src: 'u = handle(1, on = z -> z/abs(z))' }]));
+  d = byIdShown(nb.setWidget('u', 'u', { from: d.u.spec.from, at: ['0', '3'] }));
   assert.equal(d.u.value.text, 'i');
   // Listas: elementos arrastáveis; a lista inteira permite acrescentar e remover.
-  d = byIdDisplay(nb.update([{ id: 'l', src: 'vs = handles([0, 1, i], add = true, min = 2)' }, { id: 'h', src: 'polygon(vs)' }]));
+  d = byIdShown(nb.update([{ id: 'l', src: 'vs = handles([0, 1, i], add = true, min = 2)' }, { id: 'h', src: 'polygon(vs)' }]));
   const it = d.h.items[0];
   assert.equal(it.drag.length, 3);
   assert.deepEqual([it.dragList.add, it.dragList.min, it.dragList.entries], [true, 2, [0, 1, 2]]);
-  d = byIdDisplay(nb.setWidget('l', 0, { from: d.l.spec.from, pts: [0, ['2', '2'], 2, ['-1', '0.5']] }));
+  d = byIdShown(nb.setWidget('l', 'vs', { from: d.l.spec.from, pts: [0, ['2', '2'], 2, ['-1', '0.5']] }));
   assert.equal(d.l.value.text, '[0, 2 + 2·i, i, -1 + 0.5·i]');
   assert.equal(d.h.items[0].pts.length, 4);
 });
@@ -166,9 +168,32 @@ test('widgets: valor vem do estado da célula', () => {
   const nb = new Notebook();
   let res = nb.update([{ id: 'k', src: 'k = slider(1, 10)' }, { id: 'sq', src: 'k^2' }]);
   assert.equal(byId(res).sq, '1');
-  assert.equal(res[0].display.t, 'widget');
-  res = nb.setWidget('k', 0, 7);
+  assert.equal(res[0].display, null);
+  assert.deepEqual(res[0].panel.map((p) => [p.label, p.d.kind]), [['k', 'slider']]);
+  res = nb.setWidget('k', 'k', 7);
   assert.equal(byId(res).sq, '49');
+});
+
+test('widgets: vários numa célula, com estado pelo nome', () => {
+  const nb = new Notebook();
+  const panel = (r) => r.panel.map((p) => `${p.label}:${p.d.kind}`);
+  let [r] = nb.update([{ id: 'w', src: 'n = slider(1, 10)\nok = checkbox()' }]);
+  assert.deepEqual(panel(r), ['n:slider', 'ok:checkbox']);
+  assert.equal(r.display, null);
+  nb.setWidget('w', 'n', 7);
+  // Inserir um controle antes não desloca o estado dos outros.
+  [r] = nb.update([{ id: 'w', src: 'm = slider(1, 5)\nn = slider(1, 10)\nok = checkbox()\nn + m' }]);
+  assert.deepEqual(panel(r), ['m:slider', 'n:slider', 'ok:checkbox']);
+  assert.equal(show(r), '8');
+  assert.deepEqual(Object.keys(r.widgets), ['m', 'n', 'ok']);
+  // Desestruturação: as variáveis recebem os valores.
+  const res = nb.update([{ id: 't', src: '(a, b) = (slider(1, 10, value = 3), select(["x", "y"]))' }, { id: 'u', src: '(a^2, b)' }]);
+  assert.deepEqual(panel(res[0]), ['a:slider', 'b:select']);
+  assert.equal(byId(res).u, '(9, x)');
+  assert.equal(byId(nb.setWidget('t', 'b', 1)).u, '(9, y)');
+  // Cadernos antigos: estado indexado pela ordem de criação.
+  [r] = nb.update([{ id: 'v', src: 'p = slider(1, 10)\nq = slider(1, 10)\np*q', widgets: [{ kind: 'slider', value: 2 }, { kind: 'slider', value: 5 }] }]);
+  assert.equal(show(r), '10');
 });
 
 test('gráfico produz séries de pontos', () => {

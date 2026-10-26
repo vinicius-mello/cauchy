@@ -32,13 +32,41 @@ export class Env {
 }
 
 // Estado por avaliação de célula (widgets, contagem de passos).
+// widgets: estado anterior {chave: {kind, value}}; next: o desta avaliação
+// (só os widgets ainda criados). Cadernos antigos guardam uma lista indexada
+// pela ordem de criação.
 export class EvalContext {
-  constructor({ widgets = [], onWidget = null, cellId = null } = {}) {
+  constructor({ widgets = {}, onWidget = null, cellId = null } = {}) {
     this.widgets = widgets;
+    this.legacy = Array.isArray(widgets);
+    this.next = {};
     this.cellId = cellId;
     this.widgetIndex = 0;
+    this.widgetNames = null;
+    this.widgetSub = 0;
     this.onWidget = onWidget;
     this.depth = 0;
+  }
+
+  // Reserva a chave de um widget novo: o nome da variável da definição que o
+  // cria, estável ao inserir outros widgets. Em (a, b) = (…), o j-ésimo widget
+  // fica com o j-ésimo nome; os que sobram, com o último e #j (vs, vs#1, …).
+  // Fora de definições, a ordem de criação. Devolve também o valor anterior,
+  // se for do mesmo tipo.
+  widgetSlot(kind) {
+    const i = this.widgetIndex++;
+    let key = String(i);
+    const names = this.widgetNames;
+    if (names) {
+      const j = this.widgetSub++;
+      key = j < names.length ? names[j] : `${names[names.length - 1]}#${j}`;
+    }
+    const prev = [this.widgets[key], this.legacy ? this.widgets[i] : undefined].find((w) => w && w.kind === kind);
+    return { key, prev: prev ? prev.value : undefined };
+  }
+
+  storeWidget(key, kind, value) {
+    this.next[key] = { kind, value };
   }
 }
 
@@ -553,8 +581,26 @@ function evalWith(node, env) {
 
 // ---------------------------------------------------------- declarações
 
+// Widgets dentro de tuplas e listas (a, b) = (slider(...), checkbox()):
+// as variáveis recebem os valores.
+const hasWidget = (v) => v instanceof Widget || (v instanceof Tuple && v.items.some(hasWidget)) || (Array.isArray(v) && v.some(hasWidget));
+function unwrapWidgets(v) {
+  if (v instanceof Widget) return v.value;
+  if (!hasWidget(v)) return v;
+  return v instanceof Tuple ? new Tuple(v.items.map(unwrapWidgets)) : v.map(unwrapWidgets);
+}
+
+// Widgets de uma definição, com o nome da variável que recebe cada um.
+function collectWidgets(p, v, out) {
+  if (v instanceof Widget) out.push({ name: p.k === 'pvar' ? p.name : null, widget: v });
+  else if (p.k === 'ptuple' && v instanceof Tuple) p.items.forEach((q, i) => collectWidgets(q, v.items[i], out));
+  else if (p.k === 'plist' && Array.isArray(v)) p.items.forEach((q, i) => collectWidgets(q, v[i], out));
+}
+
 // Avalia definições em sequência, agrupando cláusulas consecutivas de função.
-export function bindDefs(defs, env) {
+// Com panel (definições de célula), os widgets criados por definições ganham
+// chaves pelo nome e são acrescentados a panel.
+export function bindDefs(defs, env, panel = null) {
   let last = UNIT;
   for (let i = 0; i < defs.length; i++) {
     const d = defs[i];
@@ -567,9 +613,19 @@ export function bindDefs(defs, env) {
       last = located(d, () => makeClosure(d.name, clauses, env));
       env.set(d.name, last);
     } else if (d.k === 'def') {
-      const raw = evaluate(d.expr, env);
-      const v = raw instanceof Widget ? raw.value : raw;
-      if (!matchPattern(d.pat, v, env)) throw new CauchyError('o valor não corresponde ao padrão', d.pos, d.end);
+      let raw;
+      if (panel) {
+        const names = patternNames(d.pat);
+        ctx.widgetNames = names.length ? names : null;
+        ctx.widgetSub = 0;
+        try {
+          raw = evaluate(d.expr, env);
+        } finally {
+          ctx.widgetNames = null;
+        }
+        collectWidgets(d.pat, raw, panel);
+      } else raw = evaluate(d.expr, env);
+      if (!matchPattern(d.pat, unwrapWidgets(raw), env)) throw new CauchyError('o valor não corresponde ao padrão', d.pos, d.end);
       last = raw;
     } else {
       last = evaluate(d, env);

@@ -19,7 +19,7 @@ const state = {
   title: '',
   sigs: {},
   refTab: 'functions',
-  cells: [], // {id, src, widgets, el, result, dirty}
+  cells: [], // {id, src, widgets: {chave: {kind, value}}, el, result, dirty}
   builtins: new Set(),
   docs: [],
   worker: null,
@@ -157,7 +157,7 @@ function cellById(id) {
 }
 
 function createCell(src = '', after = null, focus = false) {
-  const c = { id: newId(), src, widgets: [], result: null, el: null, timer: null, sentSrc: null };
+  const c = { id: newId(), src, widgets: {}, result: null, el: null, timer: null, sentSrc: null };
   const idx = after ? state.cells.indexOf(after) + 1 : state.cells.length;
   state.cells.splice(idx, 0, c);
   c.el = buildCellEl(c);
@@ -299,7 +299,9 @@ function onKey(ev, c) {
 function evalCell(c, reset = false) {
   clearTimeout(c.timer);
   if (reset) {
-    c.widgets = c.widgets.map((w) => (w && (w.kind === 'handle' || w.kind === 'handles') ? { kind: w.kind, value: null } : w));
+    for (const [k, w] of Object.entries(c.widgets)) {
+      if (w && (w.kind === 'handle' || w.kind === 'handles')) c.widgets[k] = { kind: w.kind, value: null };
+    }
     for (const d of state.cells) d.view = null;
     save();
   }
@@ -329,25 +331,36 @@ function refreshHighlight(c) {
 
 // --------------------------------------------------------------- saída
 
-// Chave que identifica um widget: se não muda, o controle é mantido no DOM
-// (recriá-lo durante o arraste interromperia o gesto).
-function widgetKey(d) {
-  return d && d.t === 'widget' ? JSON.stringify([d.kind, d.spec]) : null;
+// Chave da estrutura dos controles (painel e widget exibido): se não muda, os
+// controles ficam no DOM (recriá-los durante o arraste interromperia o gesto).
+function controlsKey(res) {
+  if (res.status !== 'ok') return null;
+  const ws = (res.panel ?? []).map((p) => [p.label, p.d.kind, p.d.spec]);
+  const d = res.display;
+  if (!ws.length && d?.t !== 'widget') return null;
+  return JSON.stringify([ws, d?.t === 'widget' ? [d.kind, d.spec] : null]);
 }
 
 function showResult(c, res) {
-  const key = res.status === 'ok' ? widgetKey(res.display) : null;
+  const out = $('.out', c.el);
+  if (res.status === 'ok' && res.widgets) {
+    // Estado dos widgets que a avaliação criou; o valor local mais recente
+    // prevalece (pode haver envios ainda não avaliados).
+    c.widgets = Object.fromEntries(Object.entries(res.widgets).map(([k, w]) => [k, c.widgets[k] ?? w]));
+    save();
+  }
+  const key = controlsKey(res);
   if (key && key === c.widgetKey && c.result?.status === 'ok' && !c.relang) {
     c.result = res;
     c.el.classList.remove('running', 'slow', 'stale');
-    const outv = $('.widget output', c.el);
-    const v = res.display.value;
-    if (outv && document.activeElement?.type !== 'range') outv.textContent = v && typeof v === 'object' ? v.text : v;
-    // Ponto de controle: campos x e y acompanham o valor (se não estão em edição).
-    if (v && typeof v === 'object' && !Array.isArray(v.at[0])) {
-      c.el.querySelectorAll('.widget input.coord').forEach((inp, k) => {
-        if (document.activeElement !== inp) inp.value = fmtCoord(v.at[k]);
-      });
+    const wraps = out.querySelectorAll(':scope > .panel > .widget');
+    (res.panel ?? []).forEach((p, k) => wraps[k] && refreshWidget(wraps[k], p.d));
+    if (res.display?.t === 'widget') {
+      const w = out.querySelector(':scope > .val .widget');
+      if (w) refreshWidget(w, res.display);
+    } else {
+      out.querySelectorAll(':scope > .val, :scope > .ms').forEach((e) => e.remove());
+      appendVal(c, out, res);
     }
     return;
   }
@@ -355,7 +368,6 @@ function showResult(c, res) {
   c.result = res;
   const el = c.el;
   el.classList.remove('running', 'slow', 'stale', 'ok', 'error', 'upstream');
-  const out = $('.out', el);
   const dot = $('.dot', el);
   if (res.status === 'error') {
     el.classList.add('error');
@@ -365,20 +377,52 @@ function showResult(c, res) {
   } else {
     el.classList.add('ok');
     dot.title = res.ms !== undefined ? `${res.ms < 1 ? '<1' : Math.round(res.ms)} ms` : '';
-    if (!res.display) {
-      out.innerHTML = '';
-    } else {
-      const { html, slots } = render(res.display);
-      const label = res.label && res.display.t !== 'fn' && res.display.t !== 'widget' ? `<span class="lbl">${esc(res.label)} =</span>` : '';
-      out.innerHTML = `<div class="val">${label}<div class="math">${html}</div></div>`;
-      out.querySelectorAll('.slot').forEach((slot) => mountSlot(c, slot, slots[+slot.dataset.slot], res));
+    out.innerHTML = '';
+    if (res.panel?.length) {
+      const panel = document.createElement('div');
+      panel.className = 'panel';
+      panel.style.setProperty('--wl', `${Math.max(...res.panel.map((p) => (p.d.spec.label ?? p.label ?? '').length))}ch`);
+      for (const p of res.panel) {
+        const slot = document.createElement('div');
+        panel.append(slot);
+        mountSlot(c, slot, p.d, p.label);
+      }
+      out.append(panel);
     }
-    if (res.ms > 50) out.insertAdjacentHTML('beforeend', `<div class="ms">${Math.round(res.ms)} ms</div>`);
+    appendVal(c, out, res);
   }
   refreshHighlight(c);
 }
 
-function mountSlot(c, slot, d, res) {
+// Valor exibido da célula (a última expressão) e o tempo, se longo.
+function appendVal(c, out, res) {
+  if (res.display) {
+    const { html, slots } = render(res.display);
+    const label = res.label && res.display.t !== 'fn' && res.display.t !== 'widget' ? `<span class="lbl">${esc(res.label)} =</span>` : '';
+    const val = document.createElement('div');
+    val.className = 'val';
+    val.innerHTML = `${label}<div class="math">${html}</div>`;
+    out.append(val);
+    val.querySelectorAll('.slot').forEach((slot) => mountSlot(c, slot, slots[+slot.dataset.slot], res.label));
+  }
+  if (res.ms > 50) out.insertAdjacentHTML('beforeend', `<div class="ms">${Math.round(res.ms)} ms</div>`);
+}
+
+// Atualiza a leitura de um controle mantido no DOM.
+function refreshWidget(wrap, d) {
+  const outv = $('output', wrap);
+  const v = d.value;
+  const sliding = document.activeElement?.type === 'range' && wrap.contains(document.activeElement);
+  if (outv && !sliding) outv.textContent = v && typeof v === 'object' ? v.text : v;
+  // Ponto de controle: campos x e y acompanham o valor (se não estão em edição).
+  if (v && typeof v === 'object' && !Array.isArray(v.at[0])) {
+    wrap.querySelectorAll('input.coord').forEach((inp, k) => {
+      if (document.activeElement !== inp) inp.value = fmtCoord(v.at[k]);
+    });
+  }
+}
+
+function mountSlot(c, slot, d, name) {
   if (d.t === 'graphics') {
     const w = Math.max(300, Math.min(760, ($('#cells').clientWidth || 700) - 60));
     // Depois de arrastar um ponto, a janela fica fixa até a célula ser editada.
@@ -398,7 +442,7 @@ function mountSlot(c, slot, d, res) {
   if (d.t === 'widget') {
     const wrap = document.createElement('div');
     wrap.className = 'widget';
-    const label = d.spec.label ?? res.label ?? '';
+    const label = d.spec.label ?? name ?? '';
     const idx = d.spec.index;
     const sendValue = (v) => {
       c.widgets[idx] = { kind: d.kind, value: v };
