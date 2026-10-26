@@ -182,9 +182,11 @@ function buildCellEl(c) {
         <textarea spellcheck="false" autocapitalize="off" autocomplete="off" rows="1" data-i18n-aria="cell.code"></textarea>
       </div>
       <div class="out" aria-live="polite"></div>
+      <button class="hidden-note" data-act="hide" data-i18n="cell.hidden"></button>
     </div>
     <div class="tools">
       <button data-act="run" data-i18n-title="cell.run">▶</button>
+      <button data-act="hide" data-i18n-title="cell.hide">‹›</button>
       <button data-act="up" data-i18n-title="cell.up">↑</button>
       <button data-act="down" data-i18n-title="cell.down">↓</button>
       <button data-act="add" data-i18n-title="cell.add">+</button>
@@ -228,6 +230,7 @@ function cellAction(c, act) {
   const i = state.cells.indexOf(c);
   switch (act) {
     case 'run': evalCell(c, true); break;
+    case 'hide': setHidden(c, !c.hidden); save(); break;
     case 'add': createCell('', c, true); break;
     case 'del': deleteCell(c); break;
     case 'up':
@@ -246,6 +249,21 @@ function cellAction(c, act) {
         save();
       }
       break;
+  }
+}
+
+// Esconde (ou mostra) o código da célula, deixando só a saída.
+function setHidden(c, hidden) {
+  c.hidden = hidden;
+  c.el.classList.toggle('hide-src', hidden);
+  const b = $('.tools button[data-act="hide"]', c.el);
+  b.dataset.i18nTitle = hidden ? 'cell.show' : 'cell.hide';
+  b.title = t(b.dataset.i18nTitle);
+  const ta = $('textarea', c.el);
+  if (hidden) ta.blur();
+  else {
+    autosize(c);
+    ta.focus();
   }
 }
 
@@ -623,7 +641,7 @@ function setStatus(key, kind, cancellable = false, arg) {
 // --------------------------------------------------------------- persistência
 
 function serialize() {
-  return { title: state.title, cells: state.cells.map((c) => ({ src: c.src, widgets: c.widgets })) };
+  return { title: state.title, cells: state.cells.map((c) => ({ src: c.src, widgets: c.widgets, ...(c.hidden ? { hidden: true } : {}) })) };
 }
 
 function save() {
@@ -645,6 +663,7 @@ function load(nb) {
   for (const cell of nb.cells ?? []) {
     const c = createCell(typeof cell === 'string' || !('src' in cell) ? pick(cell, getLang()) : cell.src);
     c.widgets = cell.widgets ?? [];
+    if (cell.hidden) setHidden(c, true);
   }
   if (!state.cells.length) createCell('');
   save();

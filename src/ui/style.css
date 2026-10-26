@@ -224,6 +224,13 @@ kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width
 .tools button { border: 0; padding: 0 7px; font-size: 13px; color: var(--muted); }
 .tools button:hover { color: var(--ink); }
 .cell.slow .tools button[data-act="run"] { color: var(--run); }
+/* Código oculto: só a saída; sem saída, um aviso que mostra o código. */
+.cell.hide-src .editor { display: none; }
+.cell.hide-src .out { border-top: 0; margin-top: 0; }
+.hidden-note { display: none; border: 0; background: none; padding: 8px 6px; font: 12px var(--mono); color: var(--muted); cursor: pointer; }
+.hidden-note:hover { color: var(--ink); }
+.cell.hide-src .out:empty + .hidden-note { display: block; }
+.cell.hide-src .tools button[data-act="hide"] { color: var(--accent); }
 
 /* ---------------------------------------------------------------- matemática */
 .n { font-variant-numeric: lining-nums; overflow-wrap: anywhere; word-break: break-all; }
