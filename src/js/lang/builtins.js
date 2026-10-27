@@ -2546,20 +2546,21 @@ export function makeGlobals() {
     return pos;
   };
   const MESH_OPTS = ['points', 'xlim', 'ylim', 'zlim'];
+  // Só os limites dados: os ausentes continuam vindo dos dados.
+  const lims3 = (kw) => Object.fromEntries(Object.entries(limits(kw)).filter(([, v]) => v));
   def('surface', 3, ([f, ur, vr], kw) => {
     const [nu, nv] = gridSize(kw, 40);
     const pos = grid3(fn(f), range2(ur, 'intervalo de u'), range2(vr, 'intervalo de v'), [nu, nv], (w) => {
       if (!(w instanceof Tuple && w.items.length === 3)) fail('surface: a função deve devolver uma tupla (x, y, z)');
       return sharp(w);
     });
-    return new Graphic([{ g: 'mesh', d3: true, nu, nv, pos, attrs: { color: 1, ...attrsOf(kw, MESH_OPTS) } }], { aspect: 'equal' });
+    return new Graphic([{ g: 'mesh', d3: true, nu, nv, pos, attrs: { color: 1, ...attrsOf(kw, MESH_OPTS) } }], { aspect: 'equal', ...lims3(kw) });
   }, 'surface((u, v) -> (x, y, z), [u₀, u₁], [v₀, v₁], points=40): superfície paramétrica');
   def('plot3d', 3, ([f, xr, yr], kw) => {
     const [nu, nv] = gridSize(kw, 50);
     const pos = grid3(fn(f), range2(xr, 'intervalo de x'), range2(yr, 'intervalo de y'), [nu, nv], (w, x, y) => (isSharp(w) ? [x, y, toNum(w)] : null));
-    const lim = limits(kw);
     return new Graphic([{ g: 'mesh', d3: true, data: true, nu, nv, pos, attrs: { color: 1, colormap: 'z', ...attrsOf(kw, MESH_OPTS) } }],
-      { aspect: 'auto', ...(lim.zlim ? { zlim: lim.zlim } : {}) });
+      { aspect: 'auto', ...lims3(kw) });
   }, 'plot3d((x, y) -> z, [x₀, x₁], [y₀, y₁], points=50, zlim=): gráfico de função de duas variáveis');
 
   // --------------------------------------------------------- widgets

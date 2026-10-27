@@ -358,6 +358,7 @@ test('gráficos 3D: primitivas, malhas e opções', () => {
     { id: 's', src: 'surface((u, v) -> (u, v, u*v), [0, 1], [0, 2], points = [4, 8])' },
     { id: 'f', src: 'draw(plot3d((x, y) -> 1/x, [-1, 1], [-1, 1], points = 2), zlim = [-5, 5], box = false)' },
     { id: 'c', src: 'curve(t -> (cos(t), sin(t), t), 0, 1, points = 10)' },
+    { id: 'l', src: 'surface((u, v) -> (1/u, v, 0), [0, 1], [0, 1], xlim = [0, 4], ylim = [0, 1], points = 2)' },
   ]));
   assert.equal(d.p.t, 'graphics3d');
   assert.deepEqual(d.p.items.map((it) => it.g), ['points', 'line', 'sphere', 'plane']);
@@ -373,6 +374,8 @@ test('gráficos 3D: primitivas, malhas e opções', () => {
   assert.deepEqual([d.f.opts.zlim, d.f.opts.box, d.f.opts.aspect, f.attrs.colormap], [[-5, 5], false, 'auto', 'z']);
   assert.equal(d.c.items[0].pts.length, 11);
   assert.equal(d.c.items[0].pts[10].length, 3);
+  // surface: xlim/ylim fixam a caixa; zlim ausente fica a cargo dos dados.
+  assert.deepEqual([d.l.opts.xlim, d.l.opts.ylim, 'zlim' in d.l.opts], [[0, 4], [0, 1], false]);
 });
 
 test('gráficos 3D: erros', () => {
