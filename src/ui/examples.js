@@ -198,6 +198,14 @@ export const EXAMPLES = [
         en: '# The converse: without the hypothesis that P lies on the circle, the remainder\n# does not vanish, but it factors. Besides the degenerate factors, what is left\n# is the equation of the circle through A, B and C at P = (u4, x3): the feet are\n# collinear only when P is on the circle.\nfactor(prem(g, charset(take(hs, 2) + drop(hs, 3))))',
       },
       {
+        pt: '# A decomposição de Wu separa os zeros das hipóteses em componentes, cada uma\n# dada por uma cadeia (fora dos zeros dos seus iniciais). As condições de\n# wuprove excluem casos de sobra; a decomposição mostra onde o teorema vale.\nd = wudecomp(hs)\nlen(d)',
+        en: '# Wu\'s decomposition splits the zeros of the hypotheses into components, each\n# given by a chain (away from the zeros of its initials). The conditions of\n# wuprove exclude more than needed; the decomposition shows where the theorem holds.\nd = wudecomp(hs)\nlen(d)',
+      },
+      {
+        pt: '# Para cada componente: as relações entre os parâmetros (os polinômios cuja\n# variável principal é um u, que envolvem só os u) e se g se reduz a 0 nela.\n# A componente genérica não tem relações e o teorema vale. Onde ele falha há\n# u2² + u3² = 0 ou (u1 − u2)² + u3² = 0: sobre os reais, C = A ou C = B.\nparam(p) = any([u1, u2, u3, u4], v → v == last(vars(p)))\n[([p | p ← c, param(p)], prem(g, c) == 0) | c ← d]',
+        en: '# For each component: the relations among the parameters (the polynomials whose\n# main variable is a u, which involve only the u) and whether g reduces to 0 on it.\n# The generic component has no relations and the theorem holds. Where it fails,\n# u2² + u3² = 0 or (u1 − u2)² + u3² = 0: over the reals, C = A or C = B.\nparam(p) = any([u1, u2, u3, u4], v → v == last(vars(p)))\n[([p | p ← c, param(p)], prem(g, c) == 0) | c ← d]',
+      },
+      {
         pt: '# A figura: arraste A, B, C e P, ou desmarque a caixa para soltar P do círculo\nA = handle(-2 - i)\nB = handle(2 - i)\nC = handle(1/2 + 3i/2)',
         en: '# The figure: drag A, B, C and P, or untick the box to free P from the circle\nA = handle(-2 - i)\nB = handle(2 - i)\nC = handle(1/2 + 3i/2)',
       },

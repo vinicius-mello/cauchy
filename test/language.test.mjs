@@ -154,6 +154,9 @@ const cases = [
   ['(x, y) = gens(QQ[x, y]); charset([x^2 + y^2 - 1, x*y - 1/2], vars = [y, x])', '[4*y^4 - 4*y^2 + 1, 2*x*y - 1]'],
   ['(x, y) = gens(QQ[x, y]); charset([x*y - 1, x^2 - 1, y - 2])', '[1]'],
   ['t = gen(QQ[t]); charset([t^3 - 1, t^2 - 1]), prem(t^5, t^2 + 1, t)', '([t - 1], t)'],
+  ['(x, y, z) = gens(QQ[x, y, z]); wudecomp([x*y, x*z])', '[[x], [y, z]]'],
+  ['(x, y, z) = gens(QQ[x, y, z]); wudecomp([x*z - y^2, y*z - x^2, z^2 - x*y])', '[[-x + y, -x + z], [x^2 + x*y + y^2, -x^2 + y*z]]'],
+  ['(x, y) = gens(QQ[x, y]); wudecomp([x*y - 1, x - 1, y - 2]), wudecomp([(x - 1)*y, (x - 1)*(y - 2)])', '([], [[x - 1]])'],
   ['(x, y) = gens(QQ[x, y]); cs = charset([x^2 - 2, y^2 - x]); prem(y^4 - 2, cs), prem(y - 1, cs), initials(cs)', '(0, y - 1, [])'],
   // Diagonais do paralelogramo se cortam ao meio; x3 = x4 não segue
   ['(u1, u2, u3, x1, x2, x3, x4) = gens(QQ[u1, u2, u3, x1, x2, x3, x4]); hs = [x2 - u3, x1*u3 - u3*(u1 + u2), x4*x1 - x3*x2, x4*(u2 - u1) - u3*(x3 - u1)]; (wuprove(hs, 2*x3 - x1)[1], wuprove(hs, x3 - x4)[1] == 0)', '(0, false)'],

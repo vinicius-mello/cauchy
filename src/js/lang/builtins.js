@@ -1298,7 +1298,14 @@ export function makeGlobals() {
       for (const A of [...cs].sort((a, b) => cls(b) - cls(a))) if (cls(A) > 0) f = prem1(f, A, mvar(A));
       return normal(f);
     };
-    const lower = (p, q) => cls(p) < cls(q) || (cls(p) === cls(q) && cls(p) > 0 && deg(p, mvar(p)) < deg(q, mvar(q)));
+    // Posto: classe, grau na variável principal e, para desempatar (o fator
+    // y de x·y tem o posto de x·y), grau total e número de termos.
+    const rank = (p) => { const c = cls(p); return c ? [c, deg(p, mvar(p)), R.totalDegree(p), R.len(p)] : [0, 0, 0, 0]; };
+    const lower = (p, q) => {
+      const a = rank(p), b = rank(q);
+      const k = a.findIndex((x, i) => x !== b[i]);
+      return k >= 0 && a[k] < b[k];
+    };
     const basicSet = (P) => {
       const B = [];
       let Q = P;
@@ -1327,7 +1334,36 @@ export function makeGlobals() {
     };
     const initials = (cs) => addNew([], cs.filter((A) => cls(A) > 0).map((A) => normal(lcIn(A, mvar(A))))).filter((I) => cls(I) > 0);
     const toR = (p) => (p.ring instanceof PolyRing ? R.fromTerms(p.ring.coeffs(p).map((c, i) => ({ c, e: [i] }))) : coerce(p, R));
-    return { R, cls, mvar, prem1, premChain, charset, initials, normal, out, toR };
+    // Fatores irredutíveis (sobre QQ) não constantes, normalizados.
+    const factors = (p) => mpolyFactor(p).map((t) => [normal(t.items[0]), toInt(t.items[1])]).filter(([f]) => cls(f) > 0);
+    const sameChain = (a, b) => a.length === b.length && a.every((p, k) => equal(p, b[k]));
+    // Decomposição de Wu: Zero(P) = ∪ Zero(CS/J) sobre as cadeias devolvidas.
+    // Se um polinômio da cadeia fatora, cada fator abre um ramo; senão a
+    // cadeia entra, e os zeros de P em que um inicial se anula vêm dos ramos
+    // P ∪ {fator do inicial}. O posto da cadeia cai a cada passo: termina.
+    const decomp = (ps, chains) => {
+      const cs = charset(ps);
+      if (cls(cs[0]) === 0) return;
+      for (const A of cs) {
+        const fs = factors(A);
+        if (fs.length > 1 || fs[0][1] > 1) {
+          for (const [f] of fs) decomp([...ps, f], chains);
+          return;
+        }
+      }
+      if (!chains.some((c) => sameChain(c, cs))) chains.push(cs);
+      for (const I of initials(cs)) for (const [f] of factors(I)) decomp([...ps, f], chains);
+    };
+    // Tira C2 se a cadeia C1 se anula nos pontos genéricos de C2 (pseudo-restos
+    // nulos) e nenhum inicial de C1 se anula neles: Zero(C2/J2) já está nos
+    // zeros de C1/J1 ou nos ramos dos iniciais de C1.
+    const contains = (C1, C2) => C1.every((A) => R.isZero(premChain(A, C2))) && initials(C1).every((I) => !R.isZero(premChain(I, C2)));
+    const wudecomp = (ps) => {
+      const chains = [];
+      decomp(ps.map((p) => normal(toR(p))), chains);
+      return chains.filter((C2, k) => !chains.some((C1, j) => j !== k && C1.length < C2.length && contains(C1, C2)));
+    };
+    return { R, cls, mvar, prem1, premChain, charset, initials, normal, out, toR, wudecomp };
   };
   const polyList = (x, name) => {
     if (!Array.isArray(x)) fail(`${name} espera uma lista de polinômios`);
@@ -1366,6 +1402,10 @@ export function makeGlobals() {
     }
     return new Tuple([W.out(r), conds.map(W.out)]);
   }, 'wuprove(hs, g, vars=): (resto, condições): g segue das hipóteses hs se resto = 0 e as condições ≠ 0');
+  def('wudecomp', 1, ([ps], kw) => {
+    const W = wuSetup(polyList(ps, 'wudecomp'), kw, 'wudecomp');
+    return W.wudecomp(ps).map((cs) => cs.map(W.out));
+  }, 'wudecomp(ps, vars=): decomposição de Wu: os zeros de ps são a união dos zeros de cada cadeia fora dos seus iniciais');
   def('roots', null, ([p], kw) => {
     const F = flint();
     const go = () => {
