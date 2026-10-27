@@ -14,7 +14,7 @@ function el(name, attrs = {}, parent) {
 }
 
 // Passos "bonitos" para marcas dos eixos.
-function ticks(lo, hi, n = 6) {
+export function ticks(lo, hi, n = 6) {
   const span = hi - lo;
   if (!(span > 0)) return [lo];
   const raw = span / n;
@@ -25,7 +25,7 @@ function ticks(lo, hi, n = 6) {
   return out;
 }
 
-function fmt(v) {
+export function fmt(v) {
   if (v === 0) return '0';
   const a = Math.abs(v);
   if (a >= 1e5 || a < 1e-3) return v.toExponential(1);
@@ -54,7 +54,7 @@ function yRange(values) {
 }
 
 // Achata grupos, resolvendo a herança de atributos (o filho prevalece).
-function flatten(items, inherited, out) {
+export function flatten(items, inherited, out) {
   for (const it of items) {
     if (out.length >= MAX_LEAVES) { out.truncated = true; return out; }
     const attrs = { ...inherited, ...it.attrs };

@@ -71,5 +71,7 @@ writeFileSync(join(root, 'dist/index.html'), html);
 copyFileSync(join(root, 'build/obj/cauchy.wasm'), join(root, 'dist/cauchy.wasm'));
 // Fonte monoespaçada (JetBrains Mono recortado, licença OFL) servida ao lado da página.
 copyFileSync(join(root, 'src/ui/fonts/cauchy-mono.woff2'), join(root, 'dist/cauchy-mono.woff2'));
+// three.js (licença MIT), carregado pela página só quando há gráficos 3D.
+copyFileSync(join(root, 'src/ui/vendor/three.module.min.js'), join(root, 'dist/three.module.min.js'));
 const kb = (n) => `${(n / 1024).toFixed(0)} KB`;
 console.log(`dist/index.html ${kb(html.length)} (worker ${kb(worker.length)}, app ${kb(app.length)})`);

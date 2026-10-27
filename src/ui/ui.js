@@ -3,6 +3,7 @@
 
 import { render, ringName, esc } from './render.js';
 import { renderGraphics, handleKey } from './plot.js';
+import { mount3d } from './plot3d.js';
 import { highlight, symbolAt, KEYWORDS } from './highlight.js';
 import { typeChar, backspace, newline, wordBefore, identifiers, complete, callAt } from './editing.js';
 import { EXAMPLES, pick } from './examples.js';
@@ -441,6 +442,11 @@ function refreshWidget(wrap, d) {
 }
 
 function mountSlot(c, slot, d, name) {
+  if (d.t === 'graphics3d') {
+    const w = Math.max(300, Math.min(760, ($('#cells').clientWidth || 700) - 60));
+    mount3d(c.figs3d ??= new Map(), slot.dataset.slot ?? '0', slot, d, w);
+    return;
+  }
   if (d.t === 'graphics') {
     const w = Math.max(300, Math.min(760, ($('#cells').clientWidth || 700) - 60));
     // Depois de arrastar um ponto, a janela fica fixa até a célula ser editada.

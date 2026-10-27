@@ -278,6 +278,17 @@ sup { font-size: .68em; line-height: 0; }
 .plot .tick { font-size: 11px; fill: var(--muted); }
 .plot .ptitle { font-size: 13px; fill: var(--ink); }
 .plot .gtext { font-family: var(--sans); }
+.plot3d { position: relative; max-width: 100%; font-family: var(--sans); outline: none; border-radius: 6px; }
+.plot3d:focus-visible { box-shadow: 0 0 0 2px var(--line); }
+.plot3d canvas { display: block; touch-action: none; cursor: grab; }
+.plot3d canvas:active { cursor: grabbing; }
+.overlay3d { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.overlay3d span { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; }
+.tick3d { font-size: 11px; color: var(--muted); }
+.axis3d { font-size: 12px; font-style: italic; color: var(--ink); }
+.text3d { font-size: 13px; color: var(--ink); }
+.title3d { position: absolute; top: 6px; left: 0; right: 0; text-align: center; font-size: 13px; color: var(--ink); }
+.loading3d { position: absolute; inset: 0; display: grid; place-items: center; font-size: 13px; color: var(--muted); }
 .plot .hover { pointer-events: none; }
 .plot .hover line { stroke: var(--muted); stroke-dasharray: 3 3; }
 .plot .hover circle { fill: var(--accent); }

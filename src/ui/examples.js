@@ -117,6 +117,43 @@ export const EXAMPLES = [
     ],
   },
   {
+    title: { pt: 'Gráficos 3D', en: '3D graphics' },
+    cells: [
+      {
+        pt: '# Gráficos 3D: pontos do espaço são tuplas (x, y, z). Arraste para girar;\n# clique na figura e use a roda para aproximar; duplo clique volta à vista inicial.\nR = slider(1, 3, 0.1, value = 2)',
+        en: '# 3D graphics: points in space are tuples (x, y, z). Drag to rotate; click the\n# figure and use the wheel to zoom; double-click goes back to the initial view.\nR = slider(1, 3, 0.1, value = 2)',
+      },
+      'surface((u, v) -> ((R + cos(v))*cos(u), (R + cos(v))*sin(u), sin(v)), [0, 2pi], [0, 2pi])',
+      {
+        pt: '# Gráfico de uma função de duas variáveis, colorido pela altura\nplot3d((x, y) -> sin(x)*cos(y), [-3, 3], [-3, 3])',
+        en: '# Graph of a function of two variables, colored by height\nplot3d((x, y) -> sin(x)*cos(y), [-3, 3], [-3, 3])',
+      },
+      {
+        pt: '# Polos: zlim fixa a altura e o que sai da caixa é cortado\nplot3d((x, y) -> 1/(x^2 + y^2), [-1, 1], [-1, 1], zlim = [0, 10], points = 60)',
+        en: '# Poles: zlim fixes the height and whatever leaves the box is clipped\nplot3d((x, y) -> 1/(x^2 + y^2), [-1, 1], [-1, 1], zlim = [0, 10], points = 60)',
+      },
+      {
+        pt: '# Superfície mínima de Enneper\nsurface((u, v) -> (u - u^3/3 + u*v^2, v - v^3/3 + v*u^2, u^2 - v^2), [-2, 2], [-2, 2], colormap = "z")',
+        en: '# Enneper\'s minimal surface\nsurface((u, v) -> (u - u^3/3 + u*v^2, v - v^3/3 + v*u^2, u^2 - v^2), [-2, 2], [-2, 2], colormap = "z")',
+      },
+      {
+        pt: '# Hélice e a reta tangente num ponto móvel: tuplas somam como vetores\nh(t) = (cos(t), sin(t), t/4)\nt0 = slider(0, 4pi, 0.1, value = 2)',
+        en: '# Helix and the tangent line at a moving point: tuples add as vectors\nh(t) = (cos(t), sin(t), t/4)\nt0 = slider(0, 4pi, 0.1, value = 2)',
+      },
+      'curve(h, 0, 4pi, width = 2) + point(h(t0), size = 5, color = 2) + infline(h(t0), h(t0) + (-sin(t0), cos(t0), 1/4), color = 2)',
+      {
+        pt: '# Esfera cortada por um plano: a interseção é um círculo de raio √(1 − c²)\nc = slider(-1, 1, 0.05, value = 1/2)',
+        en: '# A sphere cut by a plane: the intersection is a circle of radius √(1 − c²)\nc = slider(-1, 1, 0.05, value = 1/2)',
+      },
+      'sphere((0, 0, 0), 1, opacity = 0.35) + plane((0, 0, c), (0, 0, 1)) + curve(t -> (sqrt(1 - c^2)*cos(t), sqrt(1 - c^2)*sin(t), c), 0, 2pi, color = 3, width = 2)',
+      {
+        pt: '# Pontos de Fibonacci: n pontos quase igualmente espaçados na esfera\nn = slider(50, 1000, 50, value = 400)',
+        en: '# Fibonacci points: n almost evenly spaced points on the sphere\nn = slider(50, 1000, 50, value = 400)',
+      },
+      'points([let z = 1 - (2k - 1)/n, r = sqrt(1 - z^2), a = k*pi*(3 - sqrt(5)) in (r*cos(a), r*sin(a), z) | k ← 1..n], size = 2)',
+    ],
+  },
+  {
     title: { pt: 'Problema de Apolônio', en: 'Problem of Apollonius' },
     cells: [
       {

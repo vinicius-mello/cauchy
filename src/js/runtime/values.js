@@ -1,6 +1,8 @@
 // Valores da linguagem que não são elementos de anéis.
 // Listas são arrays JS; strings e booleanos são nativos.
 
+import { fail } from './errors.js';
+
 export class Tuple {
   constructor(items) {
     this.items = items;
@@ -28,18 +30,23 @@ export class Factored extends Array {
 
 // Gráfico: lista de primitivas já convertidas em números de ponto flutuante
 // ({g: 'line'|'points'|'circle'|..., attrs}) e opções da janela (xlim, ylim,
-// aspect, axes, ...). Não guarda handles FLINT.
+// aspect, axes, ...). Não guarda handles FLINT. Primitivas 3D levam d3: true
+// (grupos também, se os filhos são 3D); um gráfico não mistura 2D e 3D.
 export class Graphic {
   constructor(items, opts = {}) {
     this.items = items;
     this.opts = opts;
   }
+  get is3d() {
+    return this.items.length > 0 && this.items[0].d3 === true;
+  }
   // g1 + g2: junta as primitivas; opções da esquerda têm prioridade.
   concat(other) {
+    if (this.items.length && other.items.length && this.is3d !== other.is3d) fail('não é possível juntar gráficos 2D e 3D');
     return new Graphic([...this.items, ...other.items], { ...other.opts, ...this.opts });
   }
   display() {
-    return { t: 'graphics', items: this.items, opts: this.opts };
+    return { t: this.is3d ? 'graphics3d' : 'graphics', items: this.items, opts: this.opts };
   }
 }
 

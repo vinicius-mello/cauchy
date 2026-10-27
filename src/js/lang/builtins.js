@@ -2113,7 +2113,7 @@ export function makeGlobals() {
       if (v.length !== 2 || !v.every(Number.isFinite) || !(v[1] > v[0])) fail(`${name} deve ser [lo, hi] com lo < hi`);
       return v;
     };
-    return { xlim: lim('xlim'), ylim: lim('ylim') };
+    return { xlim: lim('xlim'), ylim: lim('ylim'), zlim: lim('zlim') };
   };
   const sample = (f, a, b, n) => {
     const pts = [];
@@ -2148,18 +2148,33 @@ export function makeGlobals() {
     }
     fail(`${what} deve ser um número complexo ou uma tupla (x, y)`);
   };
+  // Ponto do espaço: tupla (x, y, z).
+  const is3 = (p) => unw(p) instanceof Tuple && unw(p).items.length === 3;
+  const pt3 = (p, what = 'ponto') => {
+    p = unw(p);
+    if (p instanceof Tuple && p.items.length === 3) {
+      const xyz = p.items.map(toNum);
+      if (xyz.every(Number.isFinite)) return xyz;
+    }
+    fail(`${what} deve ser uma tupla (x, y, z)`);
+  };
+  // Ponto do plano ou do espaço, conforme a tupla.
+  const ptN = (p, what) => (is3(p) ? pt3(p, what) : pt(p, what));
   // Ponto calculado (curve/transform): bolas largas demais (perto de polos)
   // não têm ponto médio confiável e viram lacunas.
+  const isSharp = (x) => {
+    if (!(x instanceof Elem && (x.ring === RR || x.ring === CC))) return true;
+    const parts = x.ring === RR ? [x] : [CC.re(x), CC.im(x)];
+    return parts.every((y) => RR.rad(y) <= 1e-9 * (1 + Math.abs(RR.mid(y))));
+  };
   const sharp = (v) => {
-    if (v instanceof Elem && (v.ring === RR || v.ring === CC)) {
-      const parts = v.ring === RR ? [v] : [CC.re(v), CC.im(v)];
-      if (parts.some((x) => !(RR.rad(x) <= 1e-9 * (1 + Math.abs(RR.mid(x)))))) return null;
-    }
-    return pt(v);
+    if (v instanceof Tuple && v.items.length === 3) return v.items.every(isSharp) ? pt3(v) : null;
+    return isSharp(v) ? pt(v) : null;
   };
   const pts = (ps, min, what = 'pontos') => {
-    const out = list(unw(ps)).map((p) => pt(p));
+    const out = list(unw(ps)).map((p) => ptN(p));
     if (out.length < min) fail(`${what}: esperava pelo menos ${min} pontos`);
+    if (out.some((p) => p.length !== out[0].length)) fail(`${what}: pontos do plano e do espaço misturados`);
     return out;
   };
   // Pontos de controle: vértices cujo valor de entrada é o próprio valor de um
@@ -2232,6 +2247,12 @@ export function makeGlobals() {
       fail(`${k} deve ser um de: ${MARKERS.join(', ')}`);
     },
     label: (v) => (typeof v === 'string' ? v : showText(v)),
+    mesh: (v, k) => toBool(v, k),
+    colormap: (v, k) => {
+      if (v === false) return null;
+      if (v === true || v === 'z') return 'z';
+      fail(`${k} deve ser "z" (cor pela altura) ou false`);
+    },
   };
   const attrsOf = (kw, skip = []) => {
     const out = {};
@@ -2242,30 +2263,38 @@ export function makeGlobals() {
     }
     return out;
   };
-  const prim = (g, data, kw, skip, defaults = {}) => new Graphic([{ g, ...data, attrs: { ...defaults, ...attrsOf(kw, skip) } }]);
+  const prim = (g, data, kw, skip, defaults = {}) => {
+    const p0 = data.pts?.find((p) => p) ?? data.p ?? data.c;
+    const d3 = data.d3 ?? (Array.isArray(p0) && p0.length === 3);
+    return new Graphic([{ g, ...data, ...(d3 ? { d3 } : {}), attrs: { ...defaults, ...attrsOf(kw, skip) } }]);
+  };
+  const only2d = (p, what) => { if (is3(p)) fail(`${what} ainda não aceita pontos 3D`); };
   const graphic = (v, what = 'argumento') => asGraphic(v) ?? fail(`${what} deve ser um gráfico ou uma lista de gráficos`);
   const distinct = (a, b) => {
-    if (a[0] === b[0] && a[1] === b[1]) fail('os dois pontos devem ser distintos');
+    if (a.length !== b.length) fail('pontos do plano e do espaço misturados');
+    if (a.every((x, k) => x === b[k])) fail('os dois pontos devem ser distintos');
     return [a, b];
   };
 
   const two = (a, b) => drags([[0, a], [1, b]]);
-  def('point', 1, ([p], kw) => prim('points', { pts: [pt(p)], ...drags([[0, p]]) }, kw), 'point(p): ponto (complexo ou tupla (x, y))');
+  def('point', 1, ([p], kw) => prim('points', { pts: [ptN(p)], ...drags([[0, p]]) }, kw), 'point(p): ponto (complexo, tupla (x, y) ou (x, y, z))');
   def('points', 1, ([ps], kw) => prim('points', { pts: pts(ps, 0), ...ptsDrag(ps) }, kw), 'points(ps): vários pontos');
-  def('segment', 2, ([a, b], kw) => prim('line', { pts: [pt(a), pt(b)], ...two(a, b) }, kw), 'segment(a, b): segmento de a a b');
-  def('arrow', 2, ([a, b], kw) => prim('arrow', { pts: distinct(pt(a), pt(b)), ...two(a, b) }, kw), 'arrow(a, b): seta de a para b');
+  def('segment', 2, ([a, b], kw) => prim('line', { pts: pts([a, b], 2, 'segment'), ...two(a, b) }, kw), 'segment(a, b): segmento de a a b');
+  def('arrow', 2, ([a, b], kw) => prim('arrow', { pts: distinct(ptN(a), ptN(b)), ...two(a, b) }, kw), 'arrow(a, b): seta de a para b');
   def('line', 1, ([ps], kw) => prim('line', { pts: pts(ps, 2, 'line'), closed: kw.closed === true, ...ptsDrag(ps) }, kw, ['closed']),
     'line([p₁, p₂, …], closed=false): poligonal');
   def('polygon', 1, ([ps], kw) => prim('line', { pts: pts(ps, 3, 'polygon'), closed: true, ...ptsDrag(ps) }, kw), 'polygon([p₁, p₂, …]): polígono');
   def('rect', 2, ([a, b], kw) => {
+    only2d(a, 'rect'); only2d(b, 'rect');
     const [[x0, y0], [x1, y1]] = [pt(a), pt(b)];
     return prim('line', { pts: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]], closed: true, ...drags([[0, a], [2, b]]) }, kw);
   }, 'rect(a, b): retângulo de cantos opostos a e b');
-  def('infline', 2, ([a, b], kw) => prim('infline', { pts: distinct(pt(a), pt(b)), ...two(a, b) }, kw), 'infline(a, b): reta por a e b');
-  def('ray', 2, ([a, b], kw) => prim('ray', { pts: distinct(pt(a), pt(b)), ...two(a, b) }, kw), 'ray(a, b): semirreta de a passando por b');
-  def('circle', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio'), ...drags([['c', c]]) }, kw), 'circle(c, r): circunferência');
-  def('disk', 2, ([c, r], kw) => prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio'), ...drags([['c', c]]) }, kw, [], { fill: true }), 'disk(c, r): disco');
+  def('infline', 2, ([a, b], kw) => prim('infline', { pts: distinct(ptN(a), ptN(b)), ...two(a, b) }, kw), 'infline(a, b): reta por a e b');
+  def('ray', 2, ([a, b], kw) => prim('ray', { pts: distinct(ptN(a), ptN(b)), ...two(a, b) }, kw), 'ray(a, b): semirreta de a passando por b');
+  def('circle', 2, ([c, r], kw) => only2d(c, 'circle') ?? prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio'), ...drags([['c', c]]) }, kw), 'circle(c, r): circunferência');
+  def('disk', 2, ([c, r], kw) => only2d(c, 'disk') ?? prim('circle', { c: pt(c, 'centro'), r: positive(r, 'raio'), ...drags([['c', c]]) }, kw, [], { fill: true }), 'disk(c, r): disco');
   const arcData = (c, r, t0, t1) => {
+    only2d(c, 'arc');
     const a0 = real(t0, 'ângulo'), a1 = real(t1, 'ângulo');
     if (!(a1 > a0)) fail('o ângulo final deve ser maior que o inicial');
     return { c: pt(c, 'centro'), r: positive(r, 'raio'), t0: a0, t1: Math.min(a1, a0 + 2 * Math.PI), ...drags([['c', c]]) };
@@ -2289,8 +2318,10 @@ export function makeGlobals() {
         out.push(p);
       }
     });
+    const dim = out.find((p) => p)?.length;
+    if (out.some((p) => p && p.length !== dim)) fail('curve: a função mistura pontos do plano e do espaço');
     return prim('line', { pts: out }, kw, ['points']);
-  }, 'curve(t -> z(t), a, b, points=400): curva paramétrica');
+  }, 'curve(t -> z(t), a, b, points=400): curva paramétrica no plano (z(t) complexo ou (x, y)) ou no espaço ((x, y, z))');
   // Conjunto zero de p(x, y): fatoração exata na FLINT (cada fator irredutível
   // uma vez, sem multiplicidades) e traçado em ponto flutuante (implicit.js).
   const IMPLICIT_OPTS = ['xlim', 'ylim', 'resolution', 'vars'];
@@ -2352,11 +2383,11 @@ export function makeGlobals() {
     const POS = ['c', 'n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw'];
     const pos = kw.pos ?? 'c';
     if (!POS.includes(pos)) fail(`pos deve ser um de: ${POS.join(', ')}`);
-    return prim('text', { s: typeof str === 'string' ? str : showText(str), p: pt(p), pos, ...drags([['p', p]]) }, kw, ['pos']);
+    return prim('text', { s: typeof str === 'string' ? str : showText(str), p: ptN(p), pos, ...drags([['p', p]]) }, kw, ['pos']);
   }, 'text(s, p, pos="c"): texto no ponto p');
   def('group', null, (args, kw) => {
     const g = graphic(args, 'group');
-    return new Graphic([{ g: 'group', items: g.items, attrs: attrsOf(kw) }], g.opts);
+    return new Graphic([{ g: 'group', items: g.items, ...(g.is3d ? { d3: true } : {}), attrs: attrsOf(kw) }], g.opts);
   }, 'group(g₁, g₂, …, attrs): grupo; atributos valem para os filhos que não os definem');
   def('style', 1, ([g], kw) => {
     const a = attrsOf(kw);
@@ -2370,18 +2401,20 @@ export function makeGlobals() {
     const lim = limits(kw);
     if (lim.xlim) opts.xlim = lim.xlim;
     if (lim.ylim) opts.ylim = lim.ylim;
+    if (lim.zlim) opts.zlim = lim.zlim;
     for (const [k, v] of Object.entries(kw)) {
-      if (k === 'xlim' || k === 'ylim') continue;
+      if ((k === 'zlim' || k === 'box') && !G.is3d) fail(`${k} só vale para gráficos 3D`);
+      if (k === 'xlim' || k === 'ylim' || k === 'zlim') continue;
       if (k === 'aspect') {
         if (v !== 'equal' && v !== 'auto') fail('aspect deve ser "equal" ou "auto"');
         opts.aspect = v;
-      } else if (k === 'axes' || k === 'grid' || k === 'frame') opts[k] = toBool(v, k);
+      } else if (k === 'axes' || k === 'grid' || k === 'frame' || k === 'box') opts[k] = toBool(v, k);
       else if (k === 'title') opts.title = typeof v === 'string' ? v : showText(v);
       else if (k === 'width' || k === 'height') opts[k] = Math.min(2000, Math.max(100, positive(v, k)));
       else fail(`opção desconhecida de draw: ${k}`);
     }
     return new Graphic(G.items, opts);
-  }, 'draw(g, xlim=, ylim=, aspect="equal", axes=true, grid=true, frame=true, title=, width=, height=)');
+  }, 'draw(g, xlim=, ylim=, zlim=, aspect="equal", axes=true, grid=true, frame=true, box=true, title=, width=, height=)');
   const unit = (v, what) => {
     const x = real(v, what);
     if (x < 0 || x > 1) fail(`${what} deve estar entre 0 e 1`);
@@ -2398,6 +2431,7 @@ export function makeGlobals() {
   // semelhanças); funções arbitrárias amostram e mapeiam cada ponto.
   const withItems = (g, what, f) => {
     const G = graphic(g, what);
+    if (G.is3d) fail(`${what} ainda não aceita gráficos 3D`);
     return new Graphic(f(G.items), G.opts);
   };
   const center = (c) => (c === undefined ? [0, 0] : pt(c, 'centro'));
@@ -2466,6 +2500,67 @@ export function makeGlobals() {
     });
     return new Graphic([{ g: 'points', pts: points, attrs: { color: 1, ...attrsOf(kw, PLOT_OPTS) } }], plotOpts(kw, 'equal'));
   }, 'complexplot(zs, xlim=, ylim=, attrs): pontos no plano complexo');
+
+  // --------------------------------------------------------- gráficos 3D
+  // Retas e planos viajam como dados e são recortados pela caixa da cena na
+  // UI (plot3d.js); superfícies são grades (nu + 1)×(nv + 1) de vértices em
+  // Float32Array, com NaN onde a função não está definida.
+  const vec3 = (v, what) => {
+    const p = pt3(v, what);
+    if (p.every((x) => x === 0)) fail(`${what} não pode ser nulo`);
+    return p;
+  };
+  def('plane', 2, ([p, n], kw) => prim('plane', { p: pt3(p), n: vec3(n, 'normal') }, kw), 'plane(p, n): plano por p com normal n');
+  def('sphere', 2, ([c, r], kw) => prim('sphere', { c: pt3(c, 'centro'), r: positive(r, 'raio') }, kw), 'sphere(c, r): esfera');
+  const range2 = (v, what) => {
+    const ab = iterable(v ?? fail(`${what}: faltou o intervalo [lo, hi]`)).map(toNum);
+    if (ab.length !== 2 || !ab.every(Number.isFinite) || !(ab[1] > ab[0])) fail(`${what} deve ser [lo, hi] com lo < hi`);
+    return ab;
+  };
+  const gridSize = (kw, n0) => {
+    if (kw.points === undefined) return [n0, n0];
+    const ns = kw.points instanceof Elem ? [kw.points, kw.points] : iterable(kw.points);
+    if (ns.length !== 2) fail('points deve ser n ou [nu, nv]');
+    return ns.map((n) => Math.min(400, Math.max(2, toInt(n, 'points'))));
+  };
+  // Amostra f(u, v) na grade; val converte o valor em [x, y, z] ou null.
+  const grid3 = (f, [u0, u1], [v0, v1], [nu, nv], val) => {
+    const pos = new Float32Array((nu + 1) * (nv + 1) * 3).fill(NaN);
+    flint().withPrec(64, () => {
+      for (let i = 0; i <= nu; i++) {
+        const u = u0 + ((u1 - u0) * i) / nu;
+        for (let j = 0; j <= nv; j++) {
+          const v = v0 + ((v1 - v0) * j) / nv;
+          let w;
+          try {
+            w = callValue(f, [RR.fromNumber(u), RR.fromNumber(v)]);
+          } catch (e) {
+            if (e.name === 'CauchyError' && /recursão/.test(e.message)) throw e;
+            continue;
+          }
+          const p = val(w, u, v);
+          if (p && p.every(Number.isFinite)) pos.set(p, (i * (nv + 1) + j) * 3);
+        }
+      }
+    });
+    return pos;
+  };
+  const MESH_OPTS = ['points', 'xlim', 'ylim', 'zlim'];
+  def('surface', 3, ([f, ur, vr], kw) => {
+    const [nu, nv] = gridSize(kw, 40);
+    const pos = grid3(fn(f), range2(ur, 'intervalo de u'), range2(vr, 'intervalo de v'), [nu, nv], (w) => {
+      if (!(w instanceof Tuple && w.items.length === 3)) fail('surface: a função deve devolver uma tupla (x, y, z)');
+      return sharp(w);
+    });
+    return new Graphic([{ g: 'mesh', d3: true, nu, nv, pos, attrs: { color: 1, ...attrsOf(kw, MESH_OPTS) } }], { aspect: 'equal' });
+  }, 'surface((u, v) -> (x, y, z), [u₀, u₁], [v₀, v₁], points=40): superfície paramétrica');
+  def('plot3d', 3, ([f, xr, yr], kw) => {
+    const [nu, nv] = gridSize(kw, 50);
+    const pos = grid3(fn(f), range2(xr, 'intervalo de x'), range2(yr, 'intervalo de y'), [nu, nv], (w, x, y) => (isSharp(w) ? [x, y, toNum(w)] : null));
+    const lim = limits(kw);
+    return new Graphic([{ g: 'mesh', d3: true, data: true, nu, nv, pos, attrs: { color: 1, colormap: 'z', ...attrsOf(kw, MESH_OPTS) } }],
+      { aspect: 'auto', ...(lim.zlim ? { zlim: lim.zlim } : {}) });
+  }, 'plot3d((x, y) -> z, [x₀, x₁], [y₀, y₁], points=50, zlim=): gráfico de função de duas variáveis');
 
   // --------------------------------------------------------- widgets
   const widget = (kind, spec, defVal, parse) => {

@@ -350,3 +350,47 @@ test('transform com função amostra e mapeia os pontos', () => {
   assert.equal(bad.status, 'error');
   assert.match(bad.error.message, /retas infinitas/);
 });
+
+test('gráficos 3D: primitivas, malhas e opções', () => {
+  const nb = new Notebook();
+  const d = byIdDisplay(nb.update([
+    { id: 'p', src: 'point((1, 2, 3)) + segment((0, 0, 0), (1, 1, 1)) + sphere((0, 0, 0), 2) + plane((0, 0, 1), (0, 0, 1))' },
+    { id: 's', src: 'surface((u, v) -> (u, v, u*v), [0, 1], [0, 2], points = [4, 8])' },
+    { id: 'f', src: 'draw(plot3d((x, y) -> 1/x, [-1, 1], [-1, 1], points = 2), zlim = [-5, 5], box = false)' },
+    { id: 'c', src: 'curve(t -> (cos(t), sin(t), t), 0, 1, points = 10)' },
+  ]));
+  assert.equal(d.p.t, 'graphics3d');
+  assert.deepEqual(d.p.items.map((it) => it.g), ['points', 'line', 'sphere', 'plane']);
+  assert.ok(d.p.items.every((it) => it.d3));
+  assert.deepEqual(d.p.items[0].pts, [[1, 2, 3]]);
+  // Grade (nu + 1)×(nv + 1): vértice (i, j) em (i·(nv + 1) + j)·3.
+  const m = d.s.items[0];
+  assert.deepEqual([m.g, m.nu, m.nv, m.pos.length], ['mesh', 4, 8, 5 * 9 * 3]);
+  assert.deepEqual([...m.pos.slice((4 * 9 + 8) * 3, (4 * 9 + 8) * 3 + 3)], [1, 2, 2]);
+  // plot3d: 1/x não está definida em x = 0 (NaN), e draw guarda zlim e box.
+  const f = d.f.items[0];
+  assert.ok(Number.isNaN(f.pos[(1 * 3 + 0) * 3 + 2]) && f.pos[2] === -1);
+  assert.deepEqual([d.f.opts.zlim, d.f.opts.box, d.f.opts.aspect, f.attrs.colormap], [[-5, 5], false, 'auto', 'z']);
+  assert.equal(d.c.items[0].pts.length, 11);
+  assert.equal(d.c.items[0].pts[10].length, 3);
+});
+
+test('gráficos 3D: erros', () => {
+  const nb = new Notebook();
+  const r = byId(nb.update([
+    { id: 'a', src: 'point(1) + point((1, 2, 3))' },
+    { id: 'b', src: 'draw(point(1), zlim = [0, 1])' },
+    { id: 'c', src: 'surface((u, v) -> u, [0, 1], [0, 1])' },
+    { id: 'd', src: 'plane((0, 0, 0), (0, 0, 0))' },
+    { id: 'e', src: 'line([(0, 0), (1, 1, 1)])' },
+    { id: 'f', src: 'rotate(sphere((0, 0, 0), 1), 1)' },
+  ]));
+  assert.deepEqual(r, {
+    a: 'ERRO: não é possível juntar gráficos 2D e 3D',
+    b: 'ERRO: zlim só vale para gráficos 3D',
+    c: 'ERRO: surface: a função deve devolver uma tupla (x, y, z)',
+    d: 'ERRO: normal não pode ser nulo',
+    e: 'ERRO: line: pontos do plano e do espaço misturados',
+    f: 'ERRO: rotate ainda não aceita gráficos 3D',
+  });
+});

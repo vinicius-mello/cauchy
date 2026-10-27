@@ -133,6 +133,7 @@ function r(d, slots, inner) {
     case 'fn': return `<span class="fnv">ƒ${d.name ? ' ' + esc(d.name) : ''}${d.arity !== null && d.arity !== undefined ? `<span class="note">/${d.arity}</span>` : ''}</span>`;
     case 'ring': return `<span class="ring">${ringName(d.s)}</span>`;
     case 'graphics':
+    case 'graphics3d':
     case 'widget': {
       const k = slots.length;
       slots.push(d);

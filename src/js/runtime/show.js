@@ -219,6 +219,7 @@ export function toText(d) {
     case 'fn': return d.name ? `<função ${d.name}>` : '<função>';
     case 'ring': return d.s;
     case 'graphics': return '<gráfico>';
+    case 'graphics3d': return '<gráfico 3D>';
     case 'widget': return d.value && typeof d.value === 'object' ? (d.value.text ?? toText(d.value)) : String(d.value);
     default: return `<${d.t}>`;
   }
