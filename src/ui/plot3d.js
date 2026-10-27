@@ -271,7 +271,7 @@ class Figure {
           scene.add(m);
           break;
         }
-        case 'mesh': scene.add(...meshObjects(it, S, mat, clip, box[2])); break;
+        case 'mesh': scene.add(...meshObjects(it, S, mat, clip, box)); break;
         case 'text': this.labels.push({ p: S(it.p), s: it.s, cls: 'text3d', color: a.color, pos: it.pos }); break;
       }
     }
@@ -386,8 +386,9 @@ function dotTexture() {
 // Superfície: triângulos nas células da grade com os 4 vértices definidos,
 // normais pela média das faces, cor pela altura dentro da caixa [z0, z1]
 // (colormap) e linhas da malha (mesh, até ~24 em cada direção).
-function meshObjects(it, S, mat, clip, [z0, z1]) {
-  const { nu, nv, pos } = it;
+function meshObjects(it, S, mat, clip, box) {
+  const { nu, nv, pos, cut } = it;
+  const [z0, z1] = box[2];
   const a = it.attrs;
   const n = (nu + 1) * (nv + 1);
   const P = new Float32Array(n * 3);
@@ -398,12 +399,35 @@ function meshObjects(it, S, mat, clip, [z0, z1]) {
     ok[k] = 1;
     S(p).toArray(P, 3 * k);
   }
-  const idx = [];
+  // Polo entre amostras (exclude = true): numa das coordenadas, o salto pela
+  // aresta tem sinal oposto ao das arestas vizinhas na mesma direção e é
+  // maior que elas, como em 1/x de −51 para +51. Uma função contínua, mesmo
+  // íngreme, não inverte o sentido dos dois lados.
   const at = (i, j) => i * (nv + 1) + j;
+  const val = (i, j, c) => (i < 0 || j < 0 || i > nu || j > nv || !ok[at(i, j)] ? NaN : pos[3 * at(i, j) + c]);
+  // Saltos menores que 5% da caixa (ruído numérico, por exemplo) não contam.
+  const jump = (i, j, di, dj) => {
+    for (let c = 0; c < 3; c++) {
+      const d = val(i + di, j + dj, c) - val(i, j, c);
+      if (!(Math.abs(d) > 0.05 * (box[c][1] - box[c][0]))) continue;
+      const l = val(i, j, c) - val(i - di, j - dj, c), r = val(i + 2 * di, j + 2 * dj, c) - val(i + di, j + dj, c);
+      const side = (e) => Math.sign(e) === -Math.sign(d) && Math.abs(d) > Math.abs(e);
+      if (side(l) && side(r)) return true;
+    }
+    return false;
+  };
+  const poleU = new Uint8Array(nu * (nv + 1)), poleV = new Uint8Array((nu + 1) * nv);
+  if (it.exclude === 'auto') {
+    for (let i = 0; i < nu; i++) for (let j = 0; j <= nv; j++) poleU[i * (nv + 1) + j] = jump(i, j, 1, 0);
+    for (let i = 0; i <= nu; i++) for (let j = 0; j < nv; j++) poleV[i * nv + j] = jump(i, j, 0, 1);
+  }
+  const isCut = (i, j) => (!!cut && cut[i * nv + j] === 1)
+    || poleU[i * (nv + 1) + j] || poleU[i * (nv + 1) + j + 1] || poleV[i * nv + j] || poleV[(i + 1) * nv + j];
+  const idx = [];
   for (let i = 0; i < nu; i++) {
     for (let j = 0; j < nv; j++) {
       const q = [at(i, j), at(i + 1, j), at(i + 1, j + 1), at(i, j + 1)];
-      if (q.every((k) => ok[k])) idx.push(q[0], q[1], q[2], q[0], q[2], q[3]);
+      if (!isCut(i, j) && q.every((k) => ok[k])) idx.push(q[0], q[1], q[2], q[0], q[2], q[3]);
     }
   }
   const g = new THREE.BufferGeometry();
@@ -424,9 +448,13 @@ function meshObjects(it, S, mat, clip, [z0, z1]) {
     const L = [];
     const every = (len) => Math.max(1, Math.round(len / 24));
     const su = every(nu), sv = every(nv);
-    const seg = (k1, k2) => { if (ok[k1] && ok[k2]) L.push(...P.subarray(3 * k1, 3 * k1 + 3), ...P.subarray(3 * k2, 3 * k2 + 3)); };
-    for (let i = 0; i <= nu; i += su) for (let j = 0; j < nv; j++) seg(at(i, j), at(i, j + 1));
-    for (let j = 0; j <= nv; j += sv) for (let i = 0; i < nu; i++) seg(at(i, j), at(i + 1, j));
+    // Linha da malha some se cruza um polo ou se as células dos dois lados
+    // foram excluídas.
+    const cutSide = (a, b) => (a === null || a) && (b === null || b);
+    const seg = (k1, k2, side) => { if (ok[k1] && ok[k2] && !side) L.push(...P.subarray(3 * k1, 3 * k1 + 3), ...P.subarray(3 * k2, 3 * k2 + 3)); };
+    const c = (i, j) => (i < 0 || j < 0 || i >= nu || j >= nv ? null : isCut(i, j));
+    for (let i = 0; i <= nu; i += su) for (let j = 0; j < nv; j++) seg(at(i, j), at(i, j + 1), poleV[i * nv + j] || cutSide(c(i - 1, j), c(i, j)));
+    for (let j = 0; j <= nv; j += sv) for (let i = 0; i < nu; i++) seg(at(i, j), at(i + 1, j), poleU[i * (nv + 1) + j] || cutSide(c(i, j - 1), c(i, j)));
     const lg = new THREE.BufferGeometry();
     lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(L), 3));
     out.push(new THREE.LineSegments(lg, new THREE.LineBasicMaterial({ color: color('ink'), transparent: true, opacity: 0.22, clippingPlanes: clip })));

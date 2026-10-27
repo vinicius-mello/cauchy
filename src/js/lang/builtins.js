@@ -2545,23 +2545,83 @@ export function makeGlobals() {
     });
     return pos;
   };
-  const MESH_OPTS = ['points', 'xlim', 'ylim', 'zlim'];
+  // exclude = "arb": avalia f na bola que cobre cada célula da grade; se o
+  // resultado não é finito (ou a avaliação falha), a célula pode conter um
+  // polo e não é desenhada. Rigoroso, mas exclui também células grandes
+  // demais para a bola ficar finita.
+  const finiteBall = (w) => {
+    if (w instanceof Tuple) return w.items.every(finiteBall);
+    if (!(w instanceof Elem)) return true;
+    if (w.ring === RR) return bool(RR.op('arb_is_finite', w));
+    if (w.ring === CC) return bool(CC.op('acb_is_finite', w));
+    return true;
+  };
+  const cutCells = (f, [u0, u1], [v0, v1], [nu, nv], DEPTH = 1) => {
+    const cut = new Uint8Array(nu * nv);
+    const F = flint();
+    const ball = (a, b) => RR.op('arb_set_interval', RR.fromNumber(a), RR.fromNumber(b));
+    F.withPrec(64, () => {
+      const saved = F.intervalMode;
+      F.intervalMode = true;
+      try {
+        // Célula rejeitada é dividida em quatro (até DEPTH vezes): só fica de
+        // fora se algum pedaço continuar sem valor finito.
+        const finite = (a0, a1, b0, b1, depth) => {
+          let ok;
+          try {
+            ok = finiteBall(callValue(f, [ball(a0, a1), ball(b0, b1)]));
+          } catch (e) {
+            if (e.name === 'CauchyError' && /recursão/.test(e.message)) throw e;
+            ok = false;
+          }
+          if (ok || depth === 0) return ok;
+          const am = (a0 + a1) / 2, bm = (b0 + b1) / 2;
+          return finite(a0, am, b0, bm, depth - 1) && finite(am, a1, b0, bm, depth - 1)
+            && finite(a0, am, bm, b1, depth - 1) && finite(am, a1, bm, b1, depth - 1);
+        };
+        for (let i = 0; i < nu; i++) {
+          for (let j = 0; j < nv; j++) {
+            const ok = finite(u0 + ((u1 - u0) * i) / nu, u0 + ((u1 - u0) * (i + 1)) / nu,
+              v0 + ((v1 - v0) * j) / nv, v0 + ((v1 - v0) * (j + 1)) / nv, DEPTH);
+            if (!ok) cut[i * nv + j] = 1;
+          }
+        }
+      } finally {
+        F.intervalMode = saved;
+      }
+    });
+    return cut;
+  };
+  const excludeOpt = (kw) => {
+    const e = kw.exclude;
+    if (e === undefined || e === true) return 'auto';
+    if (e === false) return false;
+    if (e === 'arb') return 'arb';
+    fail('exclude deve ser true, false ou "arb"');
+  };
+  const MESH_OPTS = ['points', 'xlim', 'ylim', 'zlim', 'exclude'];
   // Só os limites dados: os ausentes continuam vindo dos dados.
   const lims3 = (kw) => Object.fromEntries(Object.entries(limits(kw)).filter(([, v]) => v));
+  const mesh = (f, ur, vr, n, exclude, pos, extra) => ({
+    g: 'mesh', d3: true, nu: n[0], nv: n[1], pos, exclude,
+    ...(exclude === 'arb' ? { cut: cutCells(f, ur, vr, n) } : {}), ...extra,
+  });
   def('surface', 3, ([f, ur, vr], kw) => {
-    const [nu, nv] = gridSize(kw, 40);
-    const pos = grid3(fn(f), range2(ur, 'intervalo de u'), range2(vr, 'intervalo de v'), [nu, nv], (w) => {
+    const n = gridSize(kw, 40), ex = excludeOpt(kw);
+    const F = fn(f), U = range2(ur, 'intervalo de u'), V = range2(vr, 'intervalo de v');
+    const pos = grid3(F, U, V, n, (w) => {
       if (!(w instanceof Tuple && w.items.length === 3)) fail('surface: a função deve devolver uma tupla (x, y, z)');
       return sharp(w);
     });
-    return new Graphic([{ g: 'mesh', d3: true, nu, nv, pos, attrs: { color: 1, ...attrsOf(kw, MESH_OPTS) } }], { aspect: 'equal', ...lims3(kw) });
-  }, 'surface((u, v) -> (x, y, z), [u₀, u₁], [v₀, v₁], points=40): superfície paramétrica');
+    return new Graphic([mesh(F, U, V, n, ex, pos, { attrs: { color: 1, ...attrsOf(kw, MESH_OPTS) } })], { aspect: 'equal', ...lims3(kw) });
+  }, 'surface((u, v) -> (x, y, z), [u₀, u₁], [v₀, v₁], points=40, exclude=true): superfície paramétrica');
   def('plot3d', 3, ([f, xr, yr], kw) => {
-    const [nu, nv] = gridSize(kw, 50);
-    const pos = grid3(fn(f), range2(xr, 'intervalo de x'), range2(yr, 'intervalo de y'), [nu, nv], (w, x, y) => (isSharp(w) ? [x, y, toNum(w)] : null));
-    return new Graphic([{ g: 'mesh', d3: true, data: true, nu, nv, pos, attrs: { color: 1, colormap: 'z', ...attrsOf(kw, MESH_OPTS) } }],
+    const n = gridSize(kw, 50), ex = excludeOpt(kw);
+    const F = fn(f), X = range2(xr, 'intervalo de x'), Y = range2(yr, 'intervalo de y');
+    const pos = grid3(F, X, Y, n, (w, x, y) => (isSharp(w) ? [x, y, toNum(w)] : null));
+    return new Graphic([mesh(F, X, Y, n, ex, pos, { data: true, attrs: { color: 1, colormap: 'z', ...attrsOf(kw, MESH_OPTS) } })],
       { aspect: 'auto', ...lims3(kw) });
-  }, 'plot3d((x, y) -> z, [x₀, x₁], [y₀, y₁], points=50, zlim=): gráfico de função de duas variáveis');
+  }, 'plot3d((x, y) -> z, [x₀, x₁], [y₀, y₁], points=50, zlim=, exclude=true): gráfico de função de duas variáveis');
 
   // --------------------------------------------------------- widgets
   const widget = (kind, spec, defVal, parse) => {

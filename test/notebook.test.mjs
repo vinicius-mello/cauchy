@@ -387,6 +387,7 @@ test('gráficos 3D: erros', () => {
     { id: 'd', src: 'plane((0, 0, 0), (0, 0, 0))' },
     { id: 'e', src: 'line([(0, 0), (1, 1, 1)])' },
     { id: 'f', src: 'rotate(sphere((0, 0, 0), 1), 1)' },
+    { id: 'g', src: 'plot3d((x, y) -> x, [0, 1], [0, 1], exclude = "sim")' },
   ]));
   assert.deepEqual(r, {
     a: 'ERRO: não é possível juntar gráficos 2D e 3D',
@@ -395,5 +396,24 @@ test('gráficos 3D: erros', () => {
     d: 'ERRO: normal não pode ser nulo',
     e: 'ERRO: line: pontos do plano e do espaço misturados',
     f: 'ERRO: rotate ainda não aceita gráficos 3D',
+    g: 'ERRO: exclude deve ser true, false ou "arb"',
   });
+});
+
+test('gráficos 3D: exclude', () => {
+  const nb = new Notebook();
+  const d = byIdDisplay(nb.update([
+    { id: 'a', src: 'plot3d((x, y) -> 1/x, [-1, 1], [-1, 1], points = 5)' },
+    { id: 'b', src: 'plot3d((x, y) -> 1/x, [-1, 1], [-1, 1], points = 5, exclude = false)' },
+    { id: 'c', src: 'plot3d((x, y) -> 1/x, [-1, 1], [-1, 1], points = 5, exclude = "arb")' },
+    { id: 'd', src: 'surface((u, v) -> (u, v, if u > 1/2 then 1/(u - 0.7) else u), [0, 1], [0, 1], points = [5, 2], exclude = "arb")' },
+  ]));
+  // O padrão fica para o desenho; "arb" marca as células com possível polo.
+  assert.deepEqual([d.a.items[0].exclude, d.a.items[0].cut, d.b.items[0].exclude], ['auto', undefined, false]);
+  const cells = (it) => [...it.cut].join('');
+  // Grade 5×5 em [−1, 1]: só a coluna do meio, x ∈ [−0.2, 0.2], contém x = 0.
+  assert.equal(cells(d.c.items[0]), '00000' + '00000' + '11111' + '00000' + '00000');
+  // u ∈ [0.6, 0.8] contém o polo; em [0.4, 0.6] o if é indecidível, e a união
+  // dos dois ramos ainda é finita: a célula fica.
+  assert.equal(cells(d.d.items[0]), '00' + '00' + '00' + '11' + '00');
 });

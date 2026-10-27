@@ -457,6 +457,7 @@ const RULES = [
   [/^surface: a função deve devolver uma tupla \(x, y, z\)$/, 'surface: the function must return a tuple (x, y, z)'],
   [/^(zlim|box) só vale para gráficos 3D$/, '$1 only applies to 3D graphics'],
   [/^(.+) deve ser "z" \(cor pela altura\) ou false$/, '$1 must be "z" (color by height) or false'],
+  [/^exclude deve ser true, false ou "arb"$/, 'exclude must be true, false or "arb"'],
   [/^points deve ser n ou \[nu, nv\]$/, 'points must be n or [nu, nv]'],
   [/^(.+) deve ser um número complexo ou uma tupla \(x, y\)$/, (_, x) => `${w(x)} must be a complex number or a tuple (x, y)`],
   [/^(.+): esperava pelo menos (\d+) pontos$/, '$1: expected at least $2 points'],
