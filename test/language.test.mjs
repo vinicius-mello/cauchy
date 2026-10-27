@@ -148,6 +148,15 @@ const cases = [
   ['(x, y) = gens(QQ[x, y]); p = (x + 2*y)^2; terms(p), monomials(p), coeffs(p), exponents(p)', '([x^2, 4*x*y, 4*y^2], [x^2, x*y, y^2], [1, 4, 4], [[2, 0], [1, 1], [0, 2]])'],
   ['(x, y) = gens(QQ[x, y]); p = (x + y + 1)^3; coeff(p, x*y), coeff(p, x, 2), lc(3*x*y + 1), lt(3*x*y + 1), lm(3*x*y + 1)', '(6, 3*y + 3, 3, 3*x*y, x*y)'],
   ['(x, y) = gens(QQ[x, y]); resultant(x^2 + y^2 - 1, x - y, y), disc(x^2 + y*x + 1, x)', '(2*x^2 - 1, y^2 - 4)'],
+  // Wu–Ritt: pseudo-resto, conjunto característico (ordem do anel ou vars), sistema inconsistente
+  ['(x, y) = gens(QQ[x, y]); prem(x^3 + y, x^2*y - 1, x)', 'y^2 + x'],
+  ['(x, y) = gens(QQ[x, y]); charset([x^2 + y^2 - 1, x*y - 1/2])', '[4*x^4 - 4*x^2 + 1, 2*x*y - 1]'],
+  ['(x, y) = gens(QQ[x, y]); charset([x^2 + y^2 - 1, x*y - 1/2], vars = [y, x])', '[4*y^4 - 4*y^2 + 1, 2*x*y - 1]'],
+  ['(x, y) = gens(QQ[x, y]); charset([x*y - 1, x^2 - 1, y - 2])', '[1]'],
+  ['t = gen(QQ[t]); charset([t^3 - 1, t^2 - 1]), prem(t^5, t^2 + 1, t)', '([t - 1], t)'],
+  ['(x, y) = gens(QQ[x, y]); cs = charset([x^2 - 2, y^2 - x]); prem(y^4 - 2, cs), prem(y - 1, cs), initials(cs)', '(0, y - 1, [])'],
+  // Diagonais do paralelogramo se cortam ao meio; x3 = x4 não segue
+  ['(u1, u2, u3, x1, x2, x3, x4) = gens(QQ[u1, u2, u3, x1, x2, x3, x4]); hs = [x2 - u3, x1*u3 - u3*(u1 + u2), x4*x1 - x3*x2, x4*(u2 - u1) - u3*(x3 - u1)]; (wuprove(hs, 2*x3 - x1)[1], wuprove(hs, x3 - x4)[1] == 0)', '(0, false)'],
   ['x = gen(QQ[x]); y = gen(QQ[y]); x*y + 1, ring(x*y)', '(x*y + 1, QQ[x, y])'],
   ['t = gen(QQ[t]); (x, y) = gens(QQ[x, y]); (t^2 + 1)(x + y)', 'x^2 + 2*x*y + y^2 + 1'],
   ['(x, y) = gens(QQ[x, y]); QQ[x](x^2 + 1), ring(QQ[x](x^2 + 1)), len((x + y)^10)', '(x^2 + 1, QQ[x], 11)'],

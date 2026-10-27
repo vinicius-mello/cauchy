@@ -159,6 +159,66 @@ export const EXAMPLES = [
     ],
   },
   {
+    title: { pt: 'Teorema de Simson (método de Wu)', en: "Simson's theorem (Wu's method)" },
+    cells: [
+      {
+        pt: '# Teorema de Simson pelo método de Wu: os pés das perpendiculares baixadas de\n# um ponto P do círculo circunscrito aos lados de um triângulo são colineares.\n#\n# Coordenadas: A = (0, 0), B = (u1, 0), C = (u2, u3) e P = (u4, x3). Os u são\n# livres e os x ficam determinados por eles. A ordem das variáveis no anel é\n# a usada pelo método: parâmetros primeiro, depois as incógnitas.\n(u1, u2, u3, u4, x1, x2, x3, x4, x5, x6, x7) = gens(QQ[u1, u2, u3, u4, x1, x2, x3, x4, x5, x6, x7])',
+        en: '# Simson\'s theorem by Wu\'s method: the feet of the perpendiculars dropped from\n# a point P on the circumcircle to the sides of a triangle are collinear.\n#\n# Coordinates: A = (0, 0), B = (u1, 0), C = (u2, u3) and P = (u4, x3). The u are\n# free and the x are determined by them. The order of the variables in the ring\n# is the one the method uses: parameters first, then the unknowns.\n(u1, u2, u3, u4, x1, x2, x3, x4, x5, x6, x7) = gens(QQ[u1, u2, u3, u4, x1, x2, x3, x4, x5, x6, x7])',
+      },
+      {
+        pt: '# Hipóteses: O = (x1, x2) é o circuncentro, P está no círculo, e D = (x4, x5)\n# e E = (x6, x7) são os pés em BC e CA. O pé em AB é simplesmente F = (u4, 0).\nhs = [\n  2*u1*x1 - u1^2,                            # |OA| = |OB|\n  2*u2*x1 + 2*u3*x2 - u2^2 - u3^2,           # |OA| = |OC|\n  (u4 - x1)^2 + (x3 - x2)^2 - x1^2 - x2^2,   # |OP| = |OA|\n  (x4 - u1)*u3 - x5*(u2 - u1),               # D em BC\n  (x4 - u4)*(u2 - u1) + (x5 - x3)*u3,        # PD ⊥ BC\n  x6*u3 - x7*u2,                             # E em CA\n  (x6 - u4)*u2 + (x7 - x3)*u3                # PE ⊥ CA\n]',
+        en: '# Hypotheses: O = (x1, x2) is the circumcenter, P lies on the circle, and\n# D = (x4, x5) and E = (x6, x7) are the feet on BC and CA. The foot on AB is\n# simply F = (u4, 0).\nhs = [\n  2*u1*x1 - u1^2,                            # |OA| = |OB|\n  2*u2*x1 + 2*u3*x2 - u2^2 - u3^2,           # |OA| = |OC|\n  (u4 - x1)^2 + (x3 - x2)^2 - x1^2 - x2^2,   # |OP| = |OA|\n  (x4 - u1)*u3 - x5*(u2 - u1),               # D on BC\n  (x4 - u4)*(u2 - u1) + (x5 - x3)*u3,        # PD ⊥ BC\n  x6*u3 - x7*u2,                             # E on CA\n  (x6 - u4)*u2 + (x7 - x3)*u3                # PE ⊥ CA\n]',
+      },
+      {
+        pt: '# Conclusão: D, E e F colineares (um determinante 2×2)\ng = (x4 - u4)*x7 - (x6 - u4)*x5',
+        en: '# Conclusion: D, E and F are collinear (a 2×2 determinant)\ng = (x4 - u4)*x7 - (x6 - u4)*x5',
+      },
+      {
+        pt: '# O conjunto característico é uma cadeia triangular, como num escalonamento\ncs = charset(hs)',
+        en: '# The characteristic set is a triangular chain, as in row reduction\ncs = charset(hs)',
+      },
+      {
+        pt: '# Cada polinômio da cadeia introduz uma variável principal nova\n[last(vars(p)) | p ← cs]',
+        en: '# Each polynomial of the chain introduces a new main variable\n[last(vars(p)) | p ← cs]',
+      },
+      {
+        pt: '# Os iniciais (coeficientes líderes): onde eles se anulam, a cadeia degenera\ninitials(cs)',
+        en: '# The initials (leading coefficients): where they vanish, the chain degenerates\ninitials(cs)',
+      },
+      {
+        pt: '# Pseudo-reduzindo g pela cadeia, o resto é 0: o teorema vale sempre que as\n# condições não se anulam. São u3 ≠ 0 e u1 ≠ 0 (triângulo não degenerado),\n# |BC|² ≠ 0, |CA|² ≠ 0, e ainda u2 ≠ 0 e u2 ≠ u1.\n(r, conds) = wuprove(hs, g)',
+        en: '# Pseudo-reducing g by the chain leaves remainder 0: the theorem holds whenever\n# the conditions do not vanish. They are u3 ≠ 0 and u1 ≠ 0 (non-degenerate\n# triangle), |BC|² ≠ 0, |CA|² ≠ 0, and also u2 ≠ 0 and u2 ≠ u1.\n(r, conds) = wuprove(hs, g)',
+      },
+      {
+        pt: '# As condições do método são suficientes, mas nem sempre necessárias:\n# com u2 = 0 (ângulo reto em A) o resto também é 0\nwuprove([subs(h, u2 = 0) | h ← hs], subs(g, u2 = 0))',
+        en: '# The method\'s conditions are sufficient but not always necessary:\n# with u2 = 0 (right angle at A) the remainder is 0 as well\nwuprove([subs(h, u2 = 0) | h ← hs], subs(g, u2 = 0))',
+      },
+      {
+        pt: '# A recíproca: sem a hipótese de P no círculo, o resto não se anula, mas fatora.\n# Além dos fatores degenerados, sobra a equação do círculo por A, B e C em\n# P = (u4, x3): os pés só são colineares quando P está no círculo.\nfactor(prem(g, charset(take(hs, 2) + drop(hs, 3))))',
+        en: '# The converse: without the hypothesis that P lies on the circle, the remainder\n# does not vanish, but it factors. Besides the degenerate factors, what is left\n# is the equation of the circle through A, B and C at P = (u4, x3): the feet are\n# collinear only when P is on the circle.\nfactor(prem(g, charset(take(hs, 2) + drop(hs, 3))))',
+      },
+      {
+        pt: '# A figura: arraste A, B, C e P, ou desmarque a caixa para soltar P do círculo\nA = handle(-2 - i)\nB = handle(2 - i)\nC = handle(1/2 + 3i/2)',
+        en: '# The figure: drag A, B, C and P, or untick the box to free P from the circle\nA = handle(-2 - i)\nB = handle(2 - i)\nC = handle(1/2 + 3i/2)',
+      },
+      {
+        pt: '# Circuncentro e pé da perpendicular, com pontos como números complexos\ncircumcenter(a, b, c) = (abs2(a)*(b - c) + abs2(b)*(c - a) + abs2(c)*(a - b)) / (conj(a)*(b - c) + conj(b)*(c - a) + conj(c)*(a - b))\nfoot(p, a, b) = a + re((p - a)*conj(b - a))/abs2(b - a)*(b - a)',
+        en: '# Circumcenter and foot of the perpendicular, with points as complex numbers\ncircumcenter(a, b, c) = (abs2(a)*(b - c) + abs2(b)*(c - a) + abs2(c)*(a - b)) / (conj(a)*(b - c) + conj(b)*(c - a) + conj(c)*(a - b))\nfoot(p, a, b) = a + re((p - a)*conj(b - a))/abs2(b - a)*(b - a)',
+      },
+      'o = circumcenter(A, B, C)',
+      {
+        pt: 'oncircle = checkbox(value = true, label = "P no círculo")\nP = handle(-2 + 3i/2, on = z → if oncircle then o + abs(A - o)*(z - o)/abs(z - o) else z)',
+        en: 'oncircle = checkbox(value = true, label = "P on the circle")\nP = handle(-2 + 3i/2, on = z → if oncircle then o + abs(A - o)*(z - o)/abs(z - o) else z)',
+      },
+      '(D, E, F) = (foot(P, B, C), foot(P, C, A), foot(P, A, B))',
+      {
+        pt: '# A área do triângulo pedal DEF é |R² − OP²|/4R² vezes a de ABC (Euler):\n# zero exatamente quando P está no círculo\narea(a, b, c) = abs(im((b - a)*conj(c - a)))/2\n(area(D, E, F), abs(abs2(A - o) - abs2(P - o))/(4*abs2(A - o)) * area(A, B, C))',
+        en: '# The area of the pedal triangle DEF is |R² − OP²|/4R² times that of ABC\n# (Euler): zero exactly when P is on the circle\narea(a, b, c) = abs(im((b - a)*conj(c - a)))/2\n(area(D, E, F), abs(abs2(A - o) - abs2(P - o))/(4*abs2(A - o)) * area(A, B, C))',
+      },
+      'draw([\n  [infline(A, B), infline(B, C), infline(C, A)] |> style(color = "gray", width = 0.5),\n  circle(o, abs(A - o), dash = "dot", color = "ink"),\n  polygon([A, B, C], color = "ink"),\n  [segment(P, X, dash = "dash", color = 3) | X ← [D, E, F]],\n  polygon([D, E, F], color = 2, width = 2, fill = true, opacity = 0.3),\n  points([D, E, F], color = 2, size = 4),\n  point(P, color = 3),\n  [text(s, X, pos = "ne") | (s, X) ← [("A", A), ("B", B), ("C", C), ("P", P)]]\n], xlim = [-4, 4], ylim = [-3, 3.5], axes = false)',
+    ],
+  },
+  {
     title: { pt: 'FLINT direto', en: 'Raw FLINT' },
     cells: [
       { pt: '# Qualquer função da aba FLINT da referência pode ser chamada\n# diretamente; prec e contexto são preenchidos automaticamente.\nflint("arb_gamma", 1/3)', en: '# Any function from the FLINT tab of the reference can be called\n# directly; prec and context are filled in automatically.\nflint("arb_gamma", 1/3)' },

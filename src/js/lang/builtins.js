@@ -1213,6 +1213,159 @@ export function makeGlobals() {
     const f = polyFactor(p);
     return f.length === 1 && toInt(f[0].items[1]) === 1;
   }, 'isirreducible(p)');
+
+  // ------------------------------------------- conjuntos característicos (Wu–Ritt)
+  // Tudo em QQ[...]. A ordem das variáveis vai da menor para a maior: a do
+  // anel, ou vars = [...]; as variáveis fora da lista vêm antes (parâmetros).
+  // A classe de p é a posição da maior variável que aparece em p (0 se p é
+  // constante), e essa variável é a principal; o inicial é o coeficiente
+  // líder na variável principal.
+  const wuRings = new Map();
+  const wuSetup = (ps, kw, name) => {
+    let R = null;
+    for (const p of ps) {
+      if (p instanceof Elem && (p.ring === ZZ || p.ring === QQ)) continue;
+      if (!isPoly(elem(p))) fail(`${name} espera polinômios (recebeu ${typeName(p)})`);
+      R = R ? commonRing(R, p.ring) : p.ring;
+    }
+    if (!ps.length) fail(`${name}: lista de polinômios vazia`);
+    if (!R) R = QQ;
+    if (R.base !== ZZ && R.base !== QQ && R !== QQ) fail(`${name} requer coeficientes em ZZ ou QQ`);
+    // Uma variável: as contas usam um anel R[x] em várias variáveis com uma
+    // só, e out devolve os resultados em QQ[x].
+    let out = (p) => p;
+    if (!(R instanceof MPolyRing)) {
+      const v = R instanceof PolyRing ? R.v : 'x';
+      if (!wuRings.has(v)) wuRings.set(v, new MPolyRing(QQ, [v], 'degrevlex'));
+      const S = Poly(QQ, v), x = S.gen();
+      out = (p) => p.ring.terms(p).reduce((a, { c, e }) => add(a, mul(c, S.pow(x, e[0]))), S.zero());
+      R = wuRings.get(v);
+    }
+    if (R.base === ZZ) R = MPoly(QQ, R.vars, R.order);
+    let order = R.vars.map((_, j) => j);
+    if (kw.vars !== undefined) {
+      const listed = iterable(kw.vars).map((x) => {
+        const j = R.index(varName(x));
+        if (j < 0) fail(`${varName(x)} não é variável de ${R}`);
+        return j;
+      });
+      if (new Set(listed).size !== listed.length) fail('vars não pode repetir variáveis');
+      order = [...order.filter((j) => !listed.includes(j)), ...listed];
+    }
+    const pos = new Array(R.nvars);
+    order.forEach((j, k) => { pos[j] = k + 1; });
+    const cls = (p) => R.usedVars(p).reduce((m, j) => Math.max(m, pos[j]), 0);
+    const mvar = (p) => order[cls(p) - 1];
+    const deg = (p, j) => (R.isZero(p) ? -1 : R.degreeIn(p, j));
+    const coeffIn = (p, j, k) => R.fromTerms(R.terms(p).filter(({ e }) => e[j] === k).map(({ c, e }) => ({ c, e: e.map((x, i) => (i === j ? 0 : x)) })));
+    const lcIn = (p, j) => coeffIn(p, j, deg(p, j));
+    // Múltiplo racional com coeficientes inteiros primos entre si e inicial
+    // com termo líder positivo.
+    const normal = (p) => {
+      const t = R.terms(p);
+      if (!t.length) return p;
+      let n = int(0), d = int(1);
+      for (const { c } of t) {
+        n = ZZ.op('fmpz_gcd', n, QQ.num(c));
+        d = ZZ.op('fmpz_lcm', d, QQ.den(c));
+      }
+      let s = QQ.frac(d, n);
+      const lead = cls(p) > 0 ? R.terms(lcIn(p, mvar(p)))[0].c : t[0].c;
+      if (compare(lead, int(0), '<')) s = neg(s);
+      return R.scalarMul(p, s);
+    };
+    // Tira de p o conteúdo na variável principal (mdc dos coeficientes, um
+    // polinômio nas variáveis menores) e o guarda em conds: p = 0 vira
+    // p' = 0 fora de conteúdo = 0.
+    const clean = (p, conds) => {
+      if (!conds || cls(p) === 0) return p;
+      const j = mvar(p);
+      let c = R.zero();
+      for (let k = deg(p, j); k >= 0; k--) c = R.op(`${R.tag}_gcd`, c, coeffIn(p, j, k));
+      if (cls(c) === 0) return p;
+      conds.push(c);
+      return normal(div(p, c));
+    };
+    const prem1 = (f, g, j) => {
+      const d = deg(g, j);
+      if (d < 1) fail(`prem: o divisor não depende de ${R.vars[j]}`);
+      const I = lcIn(g, j), x = R.gen(j);
+      for (let df = deg(f, j); df >= d; df = deg(f, j)) f = sub(mul(I, f), mul(mul(lcIn(f, j), R.pow(x, df - d)), g));
+      return f;
+    };
+    // Pseudo-resto pela cadeia, da maior classe para a menor.
+    const premChain = (f, cs) => {
+      for (const A of [...cs].sort((a, b) => cls(b) - cls(a))) if (cls(A) > 0) f = prem1(f, A, mvar(A));
+      return normal(f);
+    };
+    const lower = (p, q) => cls(p) < cls(q) || (cls(p) === cls(q) && cls(p) > 0 && deg(p, mvar(p)) < deg(q, mvar(q)));
+    const basicSet = (P) => {
+      const B = [];
+      let Q = P;
+      while (Q.length) {
+        const p = Q.reduce((a, q) => (lower(q, a) ? q : a));
+        B.push(p);
+        if (cls(p) === 0) return [p];
+        const j = mvar(p), dp = deg(p, j);
+        Q = Q.filter((q) => cls(q) > cls(p) && deg(q, j) < dp);
+      }
+      return B;
+    };
+    const addNew = (P, ps) => {
+      for (const p of ps) if (!R.isZero(p) && !P.some((q) => equal(q, p))) P.push(p);
+      return P;
+    };
+    const charset = (ps, conds) => {
+      let P = addNew([], ps.map((p) => clean(normal(toR(p)), conds)));
+      for (;;) {
+        const B = basicSet(P);
+        if (cls(B[0]) === 0) return [R.one()];
+        const rs = addNew([], P.filter((p) => !B.includes(p)).map((p) => clean(premChain(p, B), conds)));
+        if (!rs.length) return B;
+        P = addNew(P, rs);
+      }
+    };
+    const initials = (cs) => addNew([], cs.filter((A) => cls(A) > 0).map((A) => normal(lcIn(A, mvar(A))))).filter((I) => cls(I) > 0);
+    const toR = (p) => (p.ring instanceof PolyRing ? R.fromTerms(p.ring.coeffs(p).map((c, i) => ({ c, e: [i] }))) : coerce(p, R));
+    return { R, cls, mvar, prem1, premChain, charset, initials, normal, out, toR };
+  };
+  const polyList = (x, name) => {
+    if (!Array.isArray(x)) fail(`${name} espera uma lista de polinômios`);
+    return x;
+  };
+  def('prem', null, ([f, g, x], kw) => {
+    if (Array.isArray(g)) {
+      const W = wuSetup([elem(f), ...g], kw, 'prem');
+      return W.out(W.premChain(W.toR(f), g.map(W.toR)));
+    }
+    if (x === undefined) fail('use prem(f, g, x) ou prem(f, cadeia)');
+    const W = wuSetup([elem(f), elem(g)], {}, 'prem');
+    const j = W.R.index(varName(x));
+    if (j < 0) fail(`${varName(x)} não é variável de ${W.R}`);
+    return W.out(W.prem1(W.toR(f), W.toR(g), j));
+  }, 'prem(f, g, x): pseudo-resto em x; prem(f, cs, vars=): pela cadeia cs');
+  def('charset', 1, ([ps], kw) => {
+    const W = wuSetup(polyList(ps, 'charset'), kw, 'charset');
+    return W.charset(ps).map(W.out);
+  }, 'charset(ps, vars=): conjunto característico de Wu–Ritt (cadeia ascendente)');
+  def('initials', 1, ([cs], kw) => {
+    const W = wuSetup(polyList(cs, 'initials'), kw, 'initials');
+    return W.initials(cs.map(W.toR)).map(W.out);
+  }, 'initials(cs, vars=): iniciais (coeficientes líderes nas variáveis principais)');
+  def('wuprove', 2, ([hs, g], kw) => {
+    const W = wuSetup([...polyList(hs, 'wuprove'), elem(g)], kw, 'wuprove');
+    const contents = [];
+    const cs = W.charset(hs, contents);
+    const r = W.premChain(W.toR(g), cs);
+    const conds = [];
+    for (const I of [...W.initials(cs), ...contents]) {
+      for (const t of mpolyFactor(I)) {
+        const b = W.normal(t.items[0]);
+        if (W.cls(b) > 0 && !conds.some((c) => equal(c, b))) conds.push(b);
+      }
+    }
+    return new Tuple([W.out(r), conds.map(W.out)]);
+  }, 'wuprove(hs, g, vars=): (resto, condições): g segue das hipóteses hs se resto = 0 e as condições ≠ 0');
   def('roots', null, ([p], kw) => {
     const F = flint();
     const go = () => {
